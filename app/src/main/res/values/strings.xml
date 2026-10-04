@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">IRL Hero</string>
+    <string name="card_channel">Lock-screen stats</string>
+    <string name="card_channel_description">Optional card with your live IRL timer and today\'s stats.</string>
+    <string name="card_title_locked">In real life</string>
+    <string name="card_title_idle">In Real Life Hero</string>
+    <string name="card_stats">Today %1$s · Goal %2$s · %3$s</string>
+    <plurals name="streak_days">
+        <item quantity="one">Streak %d day</item>
+        <item quantity="other">Streak %d days</item>
+    </plurals>
+    <string name="card_summary">Last session %1$s · Today %2$s</string>
+</resources>
