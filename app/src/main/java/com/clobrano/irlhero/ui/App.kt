@@ -125,6 +125,7 @@ private fun AccessMissing() {
     ) {
         Text("Usage access is off", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
         Text("In Real Life Hero needs it to see when your phone is locked and unlocked. Nothing else is read.")
+        RestrictedSettingsHelp()
         androidx.compose.material3.Button(onClick = {
             context.startActivity(android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS))
         }) { Text("Open settings") }

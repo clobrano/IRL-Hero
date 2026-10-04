@@ -7,7 +7,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +17,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,18 +36,20 @@ import kotlin.math.sin
 @Composable
 fun CelebrationScreen(c: Celebration, onShare: () -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-            Confetti()
-            Column(
-                Modifier.fillMaxSize().safeDrawingPadding().padding(32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(c.title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-                Text(c.value, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Text(c.detail, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
-                Button(onClick = onShare, modifier = Modifier.fillMaxWidth()) { Text("Share") }
-                OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Continue") }
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            Box(Modifier.fillMaxSize()) {
+                Confetti()
+                Column(
+                    Modifier.fillMaxSize().safeDrawingPadding().padding(32.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(c.title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                    Text(c.value, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(c.detail, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                    Button(onClick = onShare, modifier = Modifier.fillMaxWidth()) { Text("Share") }
+                    OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Continue") }
+                }
             }
         }
     }
