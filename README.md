@@ -54,17 +54,6 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 ## Releases
 
 Every push to `main` runs the tests and publishes a GitHub Release (`v0.1.<run number>`) with the
-APK attached. The version code is the workflow run number, so each release installs over the
-previous one.
-
-To publish a signed release APK, add these repository secrets (Settings → Secrets and variables →
-Actions):
-
-| Secret | Value |
-| --- | --- |
-| `KEYSTORE_BASE64` | Your release keystore, base64-encoded (`base64 -w0 release.jks`) |
-| `KEYSTORE_PASSWORD` | Keystore password |
-| `KEY_ALIAS` | Key alias |
-| `KEY_PASSWORD` | Key password |
-
-Without them, the release carries the debug-signed APK, which installs fine for testing.
+APK attached. The version code is the workflow run number and every build is signed with the same
+debug key (`app/debug.keystore`, committed on purpose), so each release installs over the previous
+one without losing data. Publishing on the Play Store is not planned yet.

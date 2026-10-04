@@ -18,16 +18,14 @@ android {
         versionName = System.getenv("VERSION_NAME") ?: "0.1.0"
     }
 
-    // Release signing comes from the environment (GitHub secrets in CI); unsigned otherwise.
-    val keystore = System.getenv("KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+    // A fixed debug key, committed on purpose: every CI build gets the same signature, so each
+    // new APK installs over the previous one without wiping data. Not used for store releases.
     signingConfigs {
-        if (keystore != null) {
-            create("release") {
-                storeFile = keystore
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
-            }
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
     }
 
@@ -35,7 +33,6 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (keystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
