@@ -43,15 +43,16 @@ fun DayTimeline(
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.surfaceVariant
-    val sleep = MaterialTheme.colorScheme.outlineVariant
-    val future = MaterialTheme.colorScheme.surfaceContainerHighest
+    // Sleep gets a tint of its own so it never blends with phone use, in light or dark.
+    val sleep = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
+    val future = track.copy(alpha = 0.35f)
     Column(Modifier.semantics { contentDescription = description }) {
         Canvas(
             Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(8.dp))
         ) {
             val span = (dayEnd - dayStart).toFloat()
             fun x(t: Long) = ((t - dayStart) / span).coerceIn(0f, 1f) * size.width
-            drawRect(track)
+            drawRect(track, size = Size(x(now), size.height))
             if (now < dayEnd) drawRect(future, Offset(x(now), 0f), Size(size.width - x(now), size.height))
             var cursor = dayStart
             for (w in waking.sortedBy { it.start }) {

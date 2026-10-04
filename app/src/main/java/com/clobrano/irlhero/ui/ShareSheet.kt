@@ -36,6 +36,7 @@ import com.clobrano.irlhero.share.CardTheme
 import com.clobrano.irlhero.share.ShareCardRenderer
 import com.clobrano.irlhero.share.ShareItem
 import com.clobrano.irlhero.share.Sharing
+import com.clobrano.irlhero.ui.theme.LocalDarkTheme
 
 /** Share sheet (Flow 3): text or image, post or story, light or dark, with a preview. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,7 +45,8 @@ fun ShareSheet(item: ShareItem, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var asImage by rememberSaveable { mutableStateOf(true) }
     var format by rememberSaveable { mutableStateOf(CardFormat.POST) }
-    var theme by rememberSaveable { mutableStateOf(CardTheme.LIGHT) }
+    val appDark = LocalDarkTheme.current
+    var theme by rememberSaveable { mutableStateOf(if (appDark) CardTheme.DARK else CardTheme.LIGHT) }
     val bitmap = remember(item, format, theme) { ShareCardRenderer.render(item.card, format, theme) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {

@@ -89,6 +89,7 @@ fun Onboarding(
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (state.hasUsageAccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (!state.hasUsageAccess) RestrictedSettingsHelp()
         }
         else -> page(
             "Keep tracking reliable",
@@ -137,4 +138,28 @@ fun Stepper(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Uni
         TextButton(onClick = onMinus) { Text("−", style = MaterialTheme.typography.titleLarge) }
         TextButton(onClick = onPlus) { Text("+", style = MaterialTheme.typography.titleLarge) }
     }
+}
+
+/**
+ * Android 13+ blocks Usage Access for apps installed outside an app store ("App was denied
+ * access" / restricted setting) until the user allows restricted settings from App info.
+ */
+@Composable
+fun RestrictedSettingsHelp() {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
+    val context = LocalContext.current
+    Text(
+        "If Android says the app was denied access: open App info, tap ⋮ (top right) → " +
+            "Allow restricted settings, then come back and turn on usage access.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    androidx.compose.material3.OutlinedButton(
+        onClick = {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri())
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) { Text("Open App info") }
 }
