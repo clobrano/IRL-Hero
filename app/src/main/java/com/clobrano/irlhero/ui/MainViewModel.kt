@@ -65,7 +65,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun completeOnboarding() {
         viewModelScope.launch {
-            repo.settingsStore.update { it.copy(onboarded = true) }
+            repo.settingsStore.update {
+                it.copy(onboarded = true, pointsSinceMillis = it.pointsSinceMillis.takeIf { t -> t > 0 } ?: System.currentTimeMillis())
+            }
             DailySyncWorker.schedule(getApplication())
             refresh()
         }

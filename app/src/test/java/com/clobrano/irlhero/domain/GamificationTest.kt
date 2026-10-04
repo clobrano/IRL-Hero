@@ -13,13 +13,33 @@ class GamificationTest {
     )
 
     @Test
-    fun `points add minutes, goal bonus and record bonus`() {
+    fun `points add ten-minute blocks, goal bonus and record bonus`() {
         val days = listOf(
-            day(today.minusDays(1), irlHours = 4, longestHours = 1),  // 240, sets the bar
-            day(today, irlHours = 9, longestHours = 2),               // 540 + 50 goal + 100 best day + 100 longest
+            day(today.minusDays(1), irlHours = 4, longestHours = 1),  // 24, sets the bar
+            day(today, irlHours = 9, longestHours = 2),               // 54 + 10 goal + 25 best day + 25 longest
         )
         val p = Gamification.progress(days, today)
-        assertEquals(240L + 540 + 50 + 100 + 100, p.points)
+        assertEquals(24L + 54 + 10 + 25 + 25, p.points)
+        assertEquals(HeroLevel.ROOKIE, p.level)
+    }
+
+    @Test
+    fun `history before the start day earns no points but sets the record bar`() {
+        val days = listOf(
+            day(today.minusDays(2), irlHours = 10, longestHours = 3), // imported at install
+            day(today.minusDays(1), irlHours = 9, longestHours = 2),  // imported at install
+            day(today, irlHours = 4, longestHours = 1),               // first day of use: 24
+        )
+        val p = Gamification.progress(days, today, pointsFrom = today)
+        assertEquals(24L, p.points)
+    }
+
+    @Test
+    fun `a week of good days reaches Sidekick, not Hero`() {
+        val days = (6L downTo 0L).map { day(today.minusDays(it), irlHours = 8, longestHours = 2) }
+        val p = Gamification.progress(days, today)
+        // 7 × (48 + 10 goal) = 406; no records beaten after the first day.
+        assertEquals(406L, p.points)
         assertEquals(HeroLevel.SIDEKICK, p.level)
     }
 
