@@ -2,8 +2,8 @@ name: Android CI
 
 on:
   push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,7 +17,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests, lint and debug build
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug
-      - uses: actions/upload-artifact@v4
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: irl-hero-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
