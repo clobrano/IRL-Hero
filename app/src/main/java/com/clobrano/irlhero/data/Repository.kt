@@ -47,10 +47,17 @@ class Repository(context: Context) {
     }
 
     suspend fun dashboard(now: Long = System.currentTimeMillis()): Dashboard {
-        val settings = settingsStore.current()
+        var settings = settingsStore.current()
+        if (settings.onboarded && settings.pointsSinceMillis == 0L) {
+            // Installs from before points had a start date begin earning from today.
+            settingsStore.update { it.copy(pointsSinceMillis = now) }
+            settings = settingsStore.current()
+        }
         val events = events()
+        val zone = ZoneId.systemDefault()
+        val pointsFrom = Instant.ofEpochMilli(settings.pointsSinceMillis.takeIf { it > 0 } ?: now).atZone(zone).toLocalDate()
         return withContext(Dispatchers.Default) {
-            DashboardBuilder.build(events, settings.rules, ZoneId.systemDefault(), now)
+            DashboardBuilder.build(events, settings.rules, zone, now, pointsFrom)
         }
     }
 
@@ -123,6 +130,7 @@ class Repository(context: Context) {
     suspend fun deleteAll() = withContext(Dispatchers.IO) {
         dao.deleteAll()
         settingsStore.clearProgress()
+        settingsStore.update { it.copy(pointsSinceMillis = System.currentTimeMillis()) }
         // Start fresh from now instead of re-importing the history the system still keeps.
         settingsStore.setLastSync(System.currentTimeMillis())
     }

@@ -26,6 +26,8 @@ data class Settings(
     val sleepEndMinute: Int = 7 * 60,
     val lockCardEnabled: Boolean = false,
     val theme: ThemeMode = ThemeMode.SYSTEM,
+    /** When the user started using the app; only days from then on earn Hero Points (0 = not set). */
+    val pointsSinceMillis: Long = 0,
 ) {
     val rules: SessionRules
         get() = SessionRules(
@@ -54,6 +56,7 @@ class SettingsStore(private val context: Context) {
         val sleepEnd = intPreferencesKey("sleep_end")
         val lockCard = booleanPreferencesKey("lock_card")
         val theme = stringPreferencesKey("theme")
+        val pointsSince = longPreferencesKey("points_since")
         val lastSync = longPreferencesKey("last_sync")
         val celLongest = longPreferencesKey("cel_longest")
         val celDay = longPreferencesKey("cel_day")
@@ -74,6 +77,7 @@ class SettingsStore(private val context: Context) {
         sleepEndMinute = this[Keys.sleepEnd] ?: (7 * 60),
         lockCardEnabled = this[Keys.lockCard] ?: false,
         theme = this[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
+        pointsSinceMillis = this[Keys.pointsSince] ?: 0L,
     )
 
     suspend fun update(transform: (Settings) -> Settings) {
@@ -86,6 +90,7 @@ class SettingsStore(private val context: Context) {
             prefs[Keys.sleepEnd] = s.sleepEndMinute
             prefs[Keys.lockCard] = s.lockCardEnabled
             prefs[Keys.theme] = s.theme.name
+            prefs[Keys.pointsSince] = s.pointsSinceMillis
         }
     }
 

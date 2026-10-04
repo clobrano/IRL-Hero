@@ -223,9 +223,13 @@ fun HeroScreen(d: Dashboard) {
             Text("Days in a row meeting your daily goal. One missed day per week is covered by a shield.", style = MaterialTheme.typography.bodySmall)
         }
         SectionCard(title = "How points work") {
-            LabeledValue("Each IRL minute", "1 point")
-            LabeledValue("Daily goal met", "+50")
-            LabeledValue("New best day or longest session", "+100")
+            LabeledValue("Every 10 IRL minutes", "1 point")
+            LabeledValue("Daily goal met", "+${com.clobrano.irlhero.domain.Gamification.GOAL_BONUS}")
+            LabeledValue("New best day or longest session", "+${com.clobrano.irlhero.domain.Gamification.RECORD_BONUS}")
+            Text(
+                "Only days since you started using the app earn points.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         SectionCard(title = "Levels") {
             HeroLevel.entries.forEach { LabeledValue(it.title, "${it.minPoints} points") }

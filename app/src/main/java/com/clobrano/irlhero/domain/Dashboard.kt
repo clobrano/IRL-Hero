@@ -34,7 +34,14 @@ object DashboardBuilder {
     /** History older than this is not scored (and is pruned from storage). */
     const val MAX_HISTORY_DAYS = 400L
 
-    fun build(events: List<ScreenEvent>, rules: SessionRules, zone: ZoneId, nowMillis: Long): Dashboard {
+    /** [pointsFrom]: first day that earns Hero Points (the day the user started using the app). */
+    fun build(
+        events: List<ScreenEvent>,
+        rules: SessionRules,
+        zone: ZoneId,
+        nowMillis: Long,
+        pointsFrom: LocalDate? = null,
+    ): Dashboard {
         val log = SessionBuilder.build(events, rules)
         val calc = StatsCalculator(log, rules, zone, nowMillis)
         val today = calc.dateOf(nowMillis)
@@ -63,7 +70,7 @@ object DashboardBuilder {
             monthDays = (1..month.lengthOfMonth()).map { byDate.getValue(month.atDay(it)) },
             allDays = history,
             records = RecordsCalculator.compute(calc, log, history, today),
-            hero = Gamification.progress(history, today),
+            hero = Gamification.progress(history, today, pointsFrom),
             sessions = log.sessions,
             calc = calc,
         )

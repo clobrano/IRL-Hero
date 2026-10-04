@@ -3,12 +3,18 @@ package com.clobrano.irlhero.domain
 import java.time.LocalDate
 import java.time.temporal.IsoFields
 
+/**
+ * Levels are paced for a typical 40–50 points a day: about a week to Sidekick, three months
+ * to Hero and two years to Myth.
+ */
 enum class HeroLevel(val title: String, val minPoints: Long) {
     ROOKIE("Rookie", 0),
-    SIDEKICK("Sidekick", 1_000),
-    HERO("Hero", 5_000),
-    LEGEND("Legend", 20_000),
-    MYTH("Myth", 60_000);
+    SIDEKICK("Sidekick", 300),
+    VIGILANTE("Vigilante", 1_200),
+    HERO("Hero", 3_500),
+    CHAMPION("Champion", 7_500),
+    LEGEND("Legend", 15_000),
+    MYTH("Myth", 30_000);
 
     val next: HeroLevel? get() = entries.getOrNull(ordinal + 1)
 
@@ -26,27 +32,32 @@ data class HeroProgress(
 )
 
 object Gamification {
-    const val GOAL_BONUS = 50L
-    const val RECORD_BONUS = 100L
+    const val MINUTES_PER_POINT = 10L
+    const val GOAL_BONUS = 10L
+    const val RECORD_BONUS = 25L
 
     /**
-     * Points: 1 per IRL minute, +50 per goal day, +100 each time the best day or the
+     * Points: 1 per 10 IRL minutes, +10 per goal day, +25 each time the best day or the
      * longest session is beaten (the first day only sets the bar).
-     * [days] must be in chronological order.
+     * Only days from [pointsFrom] on earn points, so history imported at install does not;
+     * it still sets the bar for records. [days] must be in chronological order.
      */
-    fun progress(days: List<DaySummary>, today: LocalDate): HeroProgress {
+    fun progress(days: List<DaySummary>, today: LocalDate, pointsFrom: LocalDate? = null): HeroProgress {
         var points = 0L
         var bestDay = 0L
         var bestSession = 0L
-        for ((i, d) in days.withIndex()) {
-            points += d.irlMillis / MINUTE
-            if (d.goalMet) points += GOAL_BONUS
+        for (d in days) {
+            val earns = pointsFrom == null || !d.date.isBefore(pointsFrom)
+            if (earns) {
+                points += d.irlMillis / MINUTE / MINUTES_PER_POINT
+                if (d.goalMet) points += GOAL_BONUS
+            }
             if (d.irlMillis > bestDay) {
-                if (i > 0 && bestDay > 0) points += RECORD_BONUS
+                if (earns && bestDay > 0) points += RECORD_BONUS
                 bestDay = d.irlMillis
             }
             if (d.longestMillis > bestSession) {
-                if (i > 0 && bestSession > 0) points += RECORD_BONUS
+                if (earns && bestSession > 0) points += RECORD_BONUS
                 bestSession = d.longestMillis
             }
         }
