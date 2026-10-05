@@ -10,4 +10,5 @@
         <item quantity="other">Streak %d days</item>
     </plurals>
     <string name="card_summary">Last session %1$s · Today %2$s</string>
+    <string name="card_details">Longest today %1$s · Last session %2$s · Level %3$s</string>
 </resources>
