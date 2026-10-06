@@ -41,8 +41,9 @@ object DashboardBuilder {
         zone: ZoneId,
         nowMillis: Long,
         pointsFrom: LocalDate? = null,
+        phoneUnlocked: Boolean = false,
     ): Dashboard {
-        val log = SessionBuilder.build(events, rules)
+        val log = SessionBuilder.build(events, rules, closeOpenAt = nowMillis.takeIf { phoneUnlocked })
         val calc = StatsCalculator(log, rules, zone, nowMillis)
         val today = calc.dateOf(nowMillis)
         val first = maxOf(calc.firstDate(today), today.minusDays(MAX_HISTORY_DAYS))

@@ -46,7 +46,8 @@ class Repository(context: Context) {
         }
     }
 
-    suspend fun dashboard(now: Long = System.currentTimeMillis()): Dashboard {
+    /** [phoneUnlocked]: true when called from the app on screen, so the phone is unlocked now. */
+    suspend fun dashboard(now: Long = System.currentTimeMillis(), phoneUnlocked: Boolean = false): Dashboard {
         var settings = settingsStore.current()
         if (settings.onboarded && settings.pointsSinceMillis == 0L) {
             // Installs from before points had a start date begin earning from today.
@@ -57,7 +58,7 @@ class Repository(context: Context) {
         val zone = ZoneId.systemDefault()
         val pointsFrom = Instant.ofEpochMilli(settings.pointsSinceMillis.takeIf { it > 0 } ?: now).atZone(zone).toLocalDate()
         return withContext(Dispatchers.Default) {
-            DashboardBuilder.build(events, settings.rules, zone, now, pointsFrom)
+            DashboardBuilder.build(events, settings.rules, zone, now, pointsFrom, phoneUnlocked)
         }
     }
 

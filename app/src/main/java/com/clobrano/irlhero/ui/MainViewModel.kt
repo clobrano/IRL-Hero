@@ -42,7 +42,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Called every time the app comes to the foreground: sync, score, celebrate. */
+    /** Called when the app comes to the foreground. */
+    fun onResume() {
+        viewModelScope.launch {
+            // Bring the card back if the system stopped its service (start is idempotent).
+            if (repo.settingsStore.current().lockCardEnabled) LockCardService.start(getApplication())
+        }
+        refresh()
+    }
+
+    /** Sync, score, celebrate. Runs on resume and periodically while the app is on screen. */
     fun refresh() {
         viewModelScope.launch {
             val ctx = getApplication<Application>()
@@ -51,11 +60,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _state.update {
                 it.copy(hasUsageAccess = access, ignoresBatteryOptimizations = battery, canPostLockCard = LockCardService.canPost(ctx))
             }
-            // Bring the card back if the system stopped its service (start is idempotent).
-            if (repo.settingsStore.current().lockCardEnabled) LockCardService.start(ctx)
             if (!access) return@launch
             repo.sync()
-            val d = repo.dashboard()
+            // The app is on screen, so the phone is unlocked right now.
+            val d = repo.dashboard(phoneUnlocked = true)
             val settings = repo.settingsStore.current()
             val celebrations = if (settings.onboarded) repo.pendingCelebrations(d) else emptyList()
             _state.update { it.copy(dashboard = d, celebrations = it.celebrations + celebrations) }
