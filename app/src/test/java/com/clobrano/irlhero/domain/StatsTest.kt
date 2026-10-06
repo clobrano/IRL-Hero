@@ -62,6 +62,24 @@ class StatsTest {
     }
 
     @Test
+    fun `running session counts toward today until now when asked`() {
+        val events = listOf(
+            ScreenEvent(EventType.SCREEN_OFF, at(day, 9)),
+            ScreenEvent(EventType.KEYGUARD_HIDDEN, at(day, 10)),
+            ScreenEvent(EventType.SCREEN_OFF, at(day, 11)), // locked right now
+            ScreenEvent(EventType.KEYGUARD_SHOWN, at(day, 11)),
+        )
+        val now = at(day, 11, 40)
+        val card = DashboardBuilder.build(events, rules, zone, now, countOpenSessionUntilNow = true)
+        assertEquals(1 * HOUR + 40 * MINUTE, card.today.irlMillis)
+        assertEquals(at(day, 11), card.openSessionStart)
+        // "Last session" while locked is the one that really ended, not the running one.
+        assertEquals(Session(at(day, 9), at(day, 10), 0), card.lastClosedSession)
+        // Default: only ended sessions count.
+        assertEquals(1 * HOUR, DashboardBuilder.build(events, rules, zone, now).today.irlMillis)
+    }
+
+    @Test
     fun `dashboard builds records and week from events`() {
         val events = listOf(
             ScreenEvent(EventType.SCREEN_OFF, at(day, 9)),

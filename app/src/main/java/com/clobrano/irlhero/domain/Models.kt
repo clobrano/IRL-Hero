@@ -38,7 +38,10 @@ data class SessionLog(
     val sessions: List<Session>,
     /** Every unlock, including those that ended a too-short session. */
     val unlocks: List<Long>,
-    /** Start of the session still running (phone locked right now), if any. */
+    /**
+     * Start of the session still open in the log (phone locked, or unlock not logged yet).
+     * Set even when the caller closed it at "now", so that session can be told apart.
+     */
     val openSessionStart: Long?,
 )
 

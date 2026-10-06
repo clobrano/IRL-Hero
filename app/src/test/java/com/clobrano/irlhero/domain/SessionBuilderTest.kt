@@ -92,6 +92,17 @@ class SessionBuilderTest {
     }
 
     @Test
+    fun `app on screen closes a session whose unlock is not logged yet`() {
+        // The phone was locked at 10:00; the unlock that reopened the app is not in the log yet.
+        val events = listOf(ev(SCREEN_OFF, 600), ev(KEYGUARD_SHOWN, 600), ev(SCREEN_ON, 667))
+        val log = SessionBuilder.build(events, rules, closeOpenAt = 667 * MINUTE + 2 * SECOND)
+        assertEquals(listOf(Session(600 * MINUTE, 667 * MINUTE + 2 * SECOND, 1)), log.sessions)
+        assertEquals(1, log.unlocks.size)
+        // Without that knowledge (e.g. the lock-screen card) the session stays open.
+        assertEquals(600 * MINUTE, SessionBuilder.build(events, rules).openSessionStart)
+    }
+
+    @Test
     fun `short power off counts until the unlock after boot`() {
         val events = listOf(
             ev(SCREEN_OFF, 0), ev(KEYGUARD_SHOWN, 0),
