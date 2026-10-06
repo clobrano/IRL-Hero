@@ -18,10 +18,9 @@ object SessionBuilder {
     private const val MAX_POWER_OFF_MILLIS = DAY
 
     /**
-     * [closeOpenAt]: when the caller knows the phone is unlocked right now (the app is on
-     * screen), a session still open in the log ends at that time. The system can log the
-     * unlock a moment after the app resumes; without this, the session that just ended
-     * would be missing from today's list.
+     * [closeOpenAt]: a session still open in the log is counted as ending at that time.
+     * The app on screen means the phone is unlocked, but the system can log the unlock a
+     * moment late; the lock-screen card uses it to count the running session so far.
      */
     fun build(events: List<ScreenEvent>, rules: SessionRules, closeOpenAt: Long? = null): SessionLog {
         val sorted = events.sortedWith(compareBy({ it.timeMillis }, { it.type.ordinal }))
@@ -94,7 +93,7 @@ object SessionBuilder {
         if (closeOpenAt != null && open != null && closeOpenAt >= open) {
             unlock(closeOpenAt)
         }
-        return SessionLog(sessions, unlocks, start)
+        return SessionLog(sessions, unlocks, open)
     }
 
     private fun nextKeyguardEvent(sorted: List<ScreenEvent>, index: Int): EventType? {

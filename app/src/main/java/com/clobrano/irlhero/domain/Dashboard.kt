@@ -23,7 +23,13 @@ data class Dashboard(
     val hero: HeroProgress,
     val sessions: List<Session>,
     val calc: StatsCalculator,
+    /** Start of the session open in the log (see [SessionLog.openSessionStart]). */
+    val openSessionStart: Long?,
 ) {
+    /** The latest session that has really ended (not the one counted until now). */
+    val lastClosedSession: Session?
+        get() = sessions.filter { it.startMillis != openSessionStart }.maxByOrNull { it.endMillis }
+
     val isWeekRecordSession: Boolean
         get() = today.longestMillis > 0 && records.weekLongestSession?.let {
             it.endedOn == today.date && it.irlMillis == today.longestMillis
@@ -41,9 +47,9 @@ object DashboardBuilder {
         zone: ZoneId,
         nowMillis: Long,
         pointsFrom: LocalDate? = null,
-        phoneUnlocked: Boolean = false,
+        countOpenSessionUntilNow: Boolean = false,
     ): Dashboard {
-        val log = SessionBuilder.build(events, rules, closeOpenAt = nowMillis.takeIf { phoneUnlocked })
+        val log = SessionBuilder.build(events, rules, closeOpenAt = nowMillis.takeIf { countOpenSessionUntilNow })
         val calc = StatsCalculator(log, rules, zone, nowMillis)
         val today = calc.dateOf(nowMillis)
         val first = maxOf(calc.firstDate(today), today.minusDays(MAX_HISTORY_DAYS))
@@ -74,6 +80,7 @@ object DashboardBuilder {
             hero = Gamification.progress(history, today, pointsFrom),
             sessions = log.sessions,
             calc = calc,
+            openSessionStart = log.openSessionStart,
         )
     }
 }

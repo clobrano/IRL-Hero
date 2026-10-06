@@ -63,7 +63,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (!access) return@launch
             repo.sync()
             // The app is on screen, so the phone is unlocked right now.
-            val d = repo.dashboard(phoneUnlocked = true)
+            val d = repo.dashboard(countOpenSessionUntilNow = true)
             val settings = repo.settingsStore.current()
             val celebrations = if (settings.onboarded) repo.pendingCelebrations(d) else emptyList()
             _state.update { it.copy(dashboard = d, celebrations = it.celebrations + celebrations) }

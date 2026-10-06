@@ -1,5 +1,6 @@
 package com.clobrano.irlhero.background
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -19,6 +20,7 @@ import com.clobrano.irlhero.MainActivity
 import com.clobrano.irlhero.R
 import com.clobrano.irlhero.data.Repository
 import com.clobrano.irlhero.domain.Format
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -44,6 +46,11 @@ class LockCardService : LifecycleService() {
                 Intent.ACTION_USER_PRESENT -> {
                     lockedAt = null
                     refresh()
+                    // The unlock may be logged a moment late: settle on the logged numbers.
+                    lifecycleScope.launch {
+                        delay(LATE_EVENTS_DELAY_MILLIS)
+                        refresh()
+                    }
                 }
             }
         }
@@ -81,16 +88,24 @@ class LockCardService : LifecycleService() {
         lifecycleScope.launch {
             val repo = Repository.get(this@LockCardService)
             repo.sync()
-            val d = repo.dashboard()
+            // Count the running session so far: while locked, today's total includes it;
+            // right after an unlock, it is the session that just ended.
+            val d = repo.dashboard(countOpenSessionUntilNow = true)
+            // Started (or restarted) while already locked: take the lock time from the log.
+            if (lockedAt == null && getSystemService(KeyguardManager::class.java).isKeyguardLocked) {
+                lockedAt = d.openSessionStart
+            }
             val stats = getString(
                 R.string.card_stats,
                 Format.duration(d.today.irlMillis),
                 Format.percent(d.today.goalProgress),
                 resources.getQuantityString(R.plurals.streak_days, d.hero.streakDays, d.hero.streakDays),
             )
-            val last = d.lastSession?.irlMillis?.let { Format.duration(it) } ?: "–"
-            val details = getString(R.string.card_details, Format.duration(d.today.longestMillis), last, d.hero.level.title)
             val locked = lockedAt
+            // While locked, "last session" is the one before the session running now.
+            val lastSession = if (locked != null) d.lastClosedSession else d.lastSession?.session
+            val last = lastSession?.let { Format.duration(d.calc.irlOf(it)) } ?: "–"
+            val details = getString(R.string.card_details, Format.duration(d.today.longestMillis), last, d.hero.level.title)
             val notification = if (locked != null) {
                 build(getString(R.string.card_title_locked), stats, details, chronometerBase = locked)
             } else {
@@ -136,6 +151,7 @@ class LockCardService : LifecycleService() {
          * change once created, hence the new id; the old low-importance channel is removed.
          */
         const val CHANNEL_ID = "lock_card_v2"
+        private const val LATE_EVENTS_DELAY_MILLIS = 5_000L
         private const val OLD_CHANNEL_ID = "lock_card"
         private const val NOTIFICATION_ID = 1
 
