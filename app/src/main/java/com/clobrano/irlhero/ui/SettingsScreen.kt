@@ -86,6 +86,27 @@ fun SettingsScreen(
                     else onLockCard(enable)
                 })
             }
+            if (s.lockCardEnabled) {
+                if (!state.canPostLockCard) {
+                    Text(
+                        "Notifications for IRL Hero are turned off, so the card can't show.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                Text(
+                    "Not on your lock screen? Check that your phone shows notifications on the lock screen " +
+                        "(Settings → Notifications) and that the \"Lock-screen stats\" category is on.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                TextButton(onClick = {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    )
+                }) { Text("Open notification settings") }
+            }
         }
         SectionCard(title = "Theme") {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {

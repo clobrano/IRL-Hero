@@ -49,18 +49,27 @@ class LockCardService : LifecycleService() {
         }
     }
 
+    private var lastNotification: Notification? = null
+
     override fun onCreate() {
         super.onCreate()
         createChannel(this)
-        val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, build(getString(R.string.card_title_idle), ""), type)
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_USER_PRESENT)
         }
         ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    /** Every startForegroundService call must be answered with startForeground, even when already running. */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
+        val notification = lastNotification ?: build(getString(R.string.card_title_idle), "")
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
         refresh()
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -79,18 +88,20 @@ class LockCardService : LifecycleService() {
                 Format.percent(d.today.goalProgress),
                 resources.getQuantityString(R.plurals.streak_days, d.hero.streakDays, d.hero.streakDays),
             )
+            val last = d.lastSession?.irlMillis?.let { Format.duration(it) } ?: "–"
+            val details = getString(R.string.card_details, Format.duration(d.today.longestMillis), last, d.hero.level.title)
             val locked = lockedAt
             val notification = if (locked != null) {
-                build(getString(R.string.card_title_locked), stats, chronometerBase = locked)
+                build(getString(R.string.card_title_locked), stats, details, chronometerBase = locked)
             } else {
-                val last = d.lastSession?.irlMillis?.let { Format.duration(it) } ?: "–"
-                build(getString(R.string.card_title_idle), getString(R.string.card_summary, last, Format.duration(d.today.irlMillis)))
+                build(getString(R.string.card_title_idle), getString(R.string.card_summary, last, Format.duration(d.today.irlMillis)), "$stats\n$details")
             }
+            lastNotification = notification
             getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
         }
     }
 
-    private fun build(title: String, text: String, chronometerBase: Long? = null): Notification {
+    private fun build(title: String, text: String, details: String = "", chronometerBase: Long? = null): Notification {
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
@@ -99,9 +110,9 @@ class LockCardService : LifecycleService() {
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(open)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(if (details.isEmpty()) text else "$text\n$details"))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setSilent(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
@@ -118,18 +129,38 @@ class LockCardService : LifecycleService() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "lock_card"
+        /**
+         * Default importance, but no sound or vibration. A low-importance channel counts as
+         * "silent", and many phones (Pixel since Android 12) hide silent notifications on the
+         * lock screen, which is the one place this card must show. A channel's importance cannot
+         * change once created, hence the new id; the old low-importance channel is removed.
+         */
+        const val CHANNEL_ID = "lock_card_v2"
+        private const val OLD_CHANNEL_ID = "lock_card"
         private const val NOTIFICATION_ID = 1
 
         fun createChannel(context: Context) {
             val channel = NotificationChannel(
-                CHANNEL_ID, context.getString(R.string.card_channel), NotificationManager.IMPORTANCE_LOW,
+                CHANNEL_ID, context.getString(R.string.card_channel), NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
                 description = context.getString(R.string.card_channel_description)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
                 setShowBadge(false)
             }
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val nm = context.getSystemService(NotificationManager::class.java)
+            nm.deleteNotificationChannel(OLD_CHANNEL_ID)
+            nm.createNotificationChannel(channel)
+        }
+
+        /** Whether the card can actually be shown: app notifications on and the channel not blocked. */
+        fun canPost(context: Context): Boolean {
+            val nm = context.getSystemService(NotificationManager::class.java)
+            if (!nm.areNotificationsEnabled()) return false
+            val channel = nm.getNotificationChannel(CHANNEL_ID) ?: return true
+            return channel.importance != NotificationManager.IMPORTANCE_NONE
         }
 
         fun start(context: Context) {

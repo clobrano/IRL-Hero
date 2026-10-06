@@ -23,6 +23,8 @@ data class UiState(
     val settings: Settings = Settings(),
     val hasUsageAccess: Boolean = false,
     val ignoresBatteryOptimizations: Boolean = false,
+    /** False when app notifications or the lock-screen card channel are turned off. */
+    val canPostLockCard: Boolean = true,
     val dashboard: Dashboard? = null,
     val celebrations: List<Celebration> = emptyList(),
 )
@@ -46,7 +48,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val ctx = getApplication<Application>()
             val access = repo.usage.hasAccess()
             val battery = ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
-            _state.update { it.copy(hasUsageAccess = access, ignoresBatteryOptimizations = battery) }
+            _state.update {
+                it.copy(hasUsageAccess = access, ignoresBatteryOptimizations = battery, canPostLockCard = LockCardService.canPost(ctx))
+            }
+            // Bring the card back if the system stopped its service (start is idempotent).
+            if (repo.settingsStore.current().lockCardEnabled) LockCardService.start(ctx)
             if (!access) return@launch
             repo.sync()
             val d = repo.dashboard()
@@ -78,6 +84,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             repo.settingsStore.update { it.copy(lockCardEnabled = enabled) }
             val ctx = getApplication<Application>()
             if (enabled) LockCardService.start(ctx) else LockCardService.stop(ctx)
+            _state.update { it.copy(canPostLockCard = LockCardService.canPost(ctx)) }
         }
     }
 
