@@ -39,24 +39,19 @@ class LockCardService : LifecycleService() {
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            val now = System.currentTimeMillis()
             when (intent.action) {
-                Intent.ACTION_SCREEN_OFF -> {
-                    timer.onScreenOff(System.currentTimeMillis())
-                    refresh()
-                }
-                Intent.ACTION_SCREEN_ON -> {
-                    timer.onScreenOn(keyguardLocked())
-                    refresh()
-                }
-                Intent.ACTION_USER_PRESENT -> {
-                    timer.onUnlock()
-                    refresh()
-                    // The unlock may be logged a moment late: settle on the logged numbers.
-                    lifecycleScope.launch {
-                        delay(LATE_EVENTS_DELAY_MILLIS)
-                        refresh()
-                    }
-                }
+                Intent.ACTION_SCREEN_OFF -> timer.onScreenOff(now)
+                Intent.ACTION_SCREEN_ON -> timer.onScreenOn(keyguardLocked(), now)
+                Intent.ACTION_USER_PRESENT -> timer.onUnlock(now)
+                else -> return
+            }
+            refresh()
+            // Check again shortly after: the log can lag a moment, and the unlock broadcast may
+            // never come at all; a later look at the screen and lock state catches both.
+            lifecycleScope.launch {
+                delay(LATE_EVENTS_DELAY_MILLIS)
+                refresh()
             }
         }
     }
@@ -98,7 +93,7 @@ class LockCardService : LifecycleService() {
             val d = repo.dashboard(countOpenSessionUntilNow = true)
             // Line the timer up with the event log, the same source the app's stats use.
             val sessionRunning = !getSystemService(PowerManager::class.java).isInteractive || keyguardLocked()
-            timer.reconcile(sessionRunning, d.openSessionStart)
+            timer.reconcile(sessionRunning, d.openSessionStart, System.currentTimeMillis())
             val stats = getString(
                 R.string.card_stats,
                 Format.duration(d.today.irlMillis),
