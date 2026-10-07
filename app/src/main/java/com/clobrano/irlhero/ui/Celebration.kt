@@ -29,7 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.clobrano.irlhero.data.Celebration
+import com.clobrano.irlhero.domain.Celebration
 import kotlin.math.sin
 
 /** Full-screen "New record" moment, shown on app open before Today (RC-4). */

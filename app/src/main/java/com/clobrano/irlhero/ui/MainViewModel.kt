@@ -7,7 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.clobrano.irlhero.background.DailySyncWorker
 import com.clobrano.irlhero.background.LockCardService
-import com.clobrano.irlhero.data.Celebration
+import com.clobrano.irlhero.domain.Celebration
 import com.clobrano.irlhero.data.Repository
 import com.clobrano.irlhero.data.Settings
 import com.clobrano.irlhero.domain.Dashboard
