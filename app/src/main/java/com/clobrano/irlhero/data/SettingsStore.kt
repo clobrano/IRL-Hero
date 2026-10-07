@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.clobrano.irlhero.domain.JudgedPeriods
 import com.clobrano.irlhero.domain.MINUTE
 import com.clobrano.irlhero.domain.SessionRules
 import kotlinx.coroutines.flow.Flow
@@ -38,15 +39,6 @@ data class Settings(
         )
 }
 
-/** What the user has already been shown, so celebrations appear once, on app open. */
-data class Celebrated(
-    val longestSession: Long = 0,
-    val bestDay: Long = 0,
-    val bestWeek: Long = 0,
-    val bestMonth: Long = 0,
-    val lastGoalDate: String = "",
-)
-
 class SettingsStore(private val context: Context) {
     private object Keys {
         val onboarded = booleanPreferencesKey("onboarded")
@@ -58,11 +50,9 @@ class SettingsStore(private val context: Context) {
         val theme = stringPreferencesKey("theme")
         val pointsSince = longPreferencesKey("points_since")
         val lastSync = longPreferencesKey("last_sync")
-        val celLongest = longPreferencesKey("cel_longest")
-        val celDay = longPreferencesKey("cel_day")
-        val celWeek = longPreferencesKey("cel_week")
-        val celMonth = longPreferencesKey("cel_month")
-        val celGoal = stringPreferencesKey("cel_goal_date")
+        val judgedDay = stringPreferencesKey("judged_day")
+        val judgedWeek = stringPreferencesKey("judged_week")
+        val judgedMonth = stringPreferencesKey("judged_month")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }
@@ -97,27 +87,19 @@ class SettingsStore(private val context: Context) {
     suspend fun lastSync(): Long = context.dataStore.data.first()[Keys.lastSync] ?: 0L
     suspend fun setLastSync(value: Long) = context.dataStore.edit { it[Keys.lastSync] = value }
 
-    suspend fun celebrated(): Celebrated = context.dataStore.data.first().let {
-        Celebrated(
-            longestSession = it[Keys.celLongest] ?: 0,
-            bestDay = it[Keys.celDay] ?: 0,
-            bestWeek = it[Keys.celWeek] ?: 0,
-            bestMonth = it[Keys.celMonth] ?: 0,
-            lastGoalDate = it[Keys.celGoal] ?: "",
-        )
+    /** The latest periods already judged for celebrations, so each is judged once. */
+    suspend fun judged(): JudgedPeriods = context.dataStore.data.first().let {
+        JudgedPeriods(day = it[Keys.judgedDay] ?: "", week = it[Keys.judgedWeek] ?: "", month = it[Keys.judgedMonth] ?: "")
     }
 
-    suspend fun setCelebrated(c: Celebrated) = context.dataStore.edit {
-        it[Keys.celLongest] = c.longestSession
-        it[Keys.celDay] = c.bestDay
-        it[Keys.celWeek] = c.bestWeek
-        it[Keys.celMonth] = c.bestMonth
-        it[Keys.celGoal] = c.lastGoalDate
+    suspend fun setJudged(j: JudgedPeriods) = context.dataStore.edit {
+        it[Keys.judgedDay] = j.day
+        it[Keys.judgedWeek] = j.week
+        it[Keys.judgedMonth] = j.month
     }
 
     suspend fun clearProgress() = context.dataStore.edit {
         it.remove(Keys.lastSync)
-        it.remove(Keys.celLongest); it.remove(Keys.celDay); it.remove(Keys.celWeek); it.remove(Keys.celMonth)
-        it.remove(Keys.celGoal)
+        it.remove(Keys.judgedDay); it.remove(Keys.judgedWeek); it.remove(Keys.judgedMonth)
     }
 }
