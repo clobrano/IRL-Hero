@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -20,6 +21,7 @@ import com.clobrano.irlhero.MainActivity
 import com.clobrano.irlhero.R
 import com.clobrano.irlhero.data.Repository
 import com.clobrano.irlhero.domain.Format
+import com.clobrano.irlhero.domain.LockTimer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -33,18 +35,21 @@ import kotlinx.coroutines.launch
  */
 class LockCardService : LifecycleService() {
 
-    private var lockedAt: Long? = null
+    private val timer = LockTimer()
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    if (lockedAt == null) lockedAt = System.currentTimeMillis()
+                    timer.onScreenOff(System.currentTimeMillis())
                     refresh()
                 }
-                Intent.ACTION_SCREEN_ON -> refresh()
+                Intent.ACTION_SCREEN_ON -> {
+                    timer.onScreenOn(keyguardLocked())
+                    refresh()
+                }
                 Intent.ACTION_USER_PRESENT -> {
-                    lockedAt = null
+                    timer.onUnlock()
                     refresh()
                     // The unlock may be logged a moment late: settle on the logged numbers.
                     lifecycleScope.launch {
@@ -91,17 +96,16 @@ class LockCardService : LifecycleService() {
             // Count the running session so far: while locked, today's total includes it;
             // right after an unlock, it is the session that just ended.
             val d = repo.dashboard(countOpenSessionUntilNow = true)
-            // Started (or restarted) while already locked: take the lock time from the log.
-            if (lockedAt == null && getSystemService(KeyguardManager::class.java).isKeyguardLocked) {
-                lockedAt = d.openSessionStart
-            }
+            // Line the timer up with the event log, the same source the app's stats use.
+            val sessionRunning = !getSystemService(PowerManager::class.java).isInteractive || keyguardLocked()
+            timer.reconcile(sessionRunning, d.openSessionStart)
             val stats = getString(
                 R.string.card_stats,
                 Format.duration(d.today.irlMillis),
                 Format.percent(d.today.goalProgress),
                 resources.getQuantityString(R.plurals.streak_days, d.hero.streakDays, d.hero.streakDays),
             )
-            val locked = lockedAt
+            val locked = timer.lockedAt
             // While locked, "last session" is the one before the session running now.
             val lastSession = if (locked != null) d.lastClosedSession else d.lastSession?.session
             val last = lastSession?.let { Format.duration(d.calc.irlOf(it)) } ?: "–"
@@ -115,6 +119,8 @@ class LockCardService : LifecycleService() {
             getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
         }
     }
+
+    private fun keyguardLocked() = getSystemService(KeyguardManager::class.java).isKeyguardLocked
 
     private fun build(title: String, text: String, details: String = "", chronometerBase: Long? = null): Notification {
         val open = PendingIntent.getActivity(
