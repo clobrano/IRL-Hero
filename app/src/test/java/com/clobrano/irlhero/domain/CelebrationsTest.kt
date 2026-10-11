@@ -67,16 +67,42 @@ class CelebrationsTest {
     }
 
     @Test
+    fun `record week counts goal days and shows only once the week is over`() {
+        // Sep 28 – Oct 4: 3 goal days (9 h). Oct 5 – 11: 4 goal days, then short days.
+        val w1 = (0..6L).associate { LocalDate.of(2026, 9, 28).plusDays(it) to if (it < 3) 9 else 2 }
+        val w2 = (0..6L).associate { LocalDate.of(2026, 10, 5).plusDays(it) to if (it < 4) 9 else 2 }
+        val from = LocalDate.of(2026, 9, 28)
+        // Friday of the second week: already a record by goal days, but the week isn't over.
+        val friday = check(now = at(LocalDate.of(2026, 10, 9), 12), judged = JudgedPeriods(day = "2026-10-08", week = "2026-09-28"), pointsFrom = from, days = w1 + w2)
+        assertTrue(friday.celebrations.none { it.title == "Record week" })
+        // Monday after: celebrated once, with the goal-day count.
+        val monday = at(LocalDate.of(2026, 10, 12), 10)
+        val c = check(monday, judged = JudgedPeriods(day = "2026-10-10", week = "2026-09-28"), pointsFrom = from, days = w1 + w2)
+        assertEquals("4 of 7 goal days", c.celebrations.single { it.title == "Record week" }.value)
+        val again = check(monday + HOUR, judged = c.judged, pointsFrom = from, days = w1 + w2)
+        assertTrue(again.celebrations.none { it.title == "Record week" })
+    }
+
+    @Test
+    fun `more hours but fewer goal days is not a record week`() {
+        val w1 = (0..6L).associate { LocalDate.of(2026, 9, 28).plusDays(it) to if (it < 3) 9 else 1 }
+        val w2 = (0..6L).associate { LocalDate.of(2026, 10, 5).plusDays(it) to if (it < 2) 9 else 7 }
+        val c = check(at(LocalDate.of(2026, 10, 12), 10), judged = JudgedPeriods(day = "2026-10-10", week = "2026-09-28"), pointsFrom = LocalDate.of(2026, 9, 28), days = w1 + w2)
+        assertTrue(c.celebrations.none { it.title == "Record week" })
+    }
+
+    @Test
     fun `record month shows on the first open of the new month, once`() {
-        val aug = (1..31).associate { LocalDate.of(2026, 8, it) to 1 }
-        val sep = (1..30).associate { LocalDate.of(2026, 9, it) to 2 }
+        // August: 5 goal days; September: 10 goal days (9 h days), the rest short.
+        val aug = (1..31).associate { LocalDate.of(2026, 8, it) to if (it <= 5) 9 else 1 }
+        val sep = (1..30).associate { LocalDate.of(2026, 9, it) to if (it % 3 == 0) 9 else 2 }
         val judged = JudgedPeriods(day = "2026-09-29", week = "2026-09-21", month = "2026-08")
         val inSeptember = check(now = at(LocalDate.of(2026, 9, 30), 12), judged = judged, pointsFrom = LocalDate.of(2026, 8, 1), days = aug + sep)
         assertTrue(inSeptember.celebrations.none { it.title == "Record month" })
 
         val now = at(LocalDate.of(2026, 10, 1), 10)
         val c = check(now, judged = judged, pointsFrom = LocalDate.of(2026, 8, 1), days = aug + sep)
-        assertTrue(c.celebrations.any { it.title == "Record month" })
+        assertEquals("10 of 30 goal days", c.celebrations.single { it.title == "Record month" }.value)
         assertEquals("2026-09", c.judged.month)
         val again = check(now + HOUR, judged = c.judged, pointsFrom = LocalDate.of(2026, 8, 1), days = aug + sep)
         assertEquals(emptyList<Celebration>(), again.celebrations)

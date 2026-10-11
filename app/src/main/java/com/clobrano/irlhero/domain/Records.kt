@@ -5,8 +5,9 @@ import java.time.YearMonth
 
 data class SessionRecord(val irlMillis: Long, val endedOn: LocalDate)
 data class DayRecord(val irlMillis: Long, val date: LocalDate)
-data class WeekRecord(val irlMillis: Long, val weekStart: LocalDate)
-data class MonthRecord(val irlMillis: Long, val month: YearMonth)
+/** Week and month records count whole days that met the daily goal; IRL time breaks ties. */
+data class WeekRecord(val goalDays: Int, val irlMillis: Long, val weekStart: LocalDate)
+data class MonthRecord(val goalDays: Int, val irlMillis: Long, val month: YearMonth)
 
 data class Records(
     val longestSession: SessionRecord?,
@@ -34,11 +35,11 @@ object RecordsCalculator {
         val month = YearMonth.from(today)
 
         val weeks = days.groupBy { StatsCalculator.weekStart(it.date) }
-            .map { (start, ds) -> WeekRecord(ds.sumOf { it.irlMillis }, start) }
-            .filter { it.irlMillis > 0 }
+            .map { (start, ds) -> WeekRecord(ds.count { it.goalMet }, ds.sumOf { it.irlMillis }, start) }
+            .filter { it.goalDays > 0 }
         val months = days.groupBy { YearMonth.from(it.date) }
-            .map { (m, ds) -> MonthRecord(ds.sumOf { it.irlMillis }, m) }
-            .filter { it.irlMillis > 0 }
+            .map { (m, ds) -> MonthRecord(ds.count { it.goalMet }, ds.sumOf { it.irlMillis }, m) }
+            .filter { it.goalDays > 0 }
 
         val fewest = days
             .filter { it.date.isBefore(today) && it.wakingElapsedMillis >= FEWEST_UNLOCKS_MIN_TRACKED && it.irlMillis > 0 }
@@ -48,8 +49,8 @@ object RecordsCalculator {
         return Records(
             longestSession = sessions.maxByOrNull { it.irlMillis },
             bestDay = dayRecs.maxByOrNull { it.irlMillis },
-            bestWeek = weeks.maxByOrNull { it.irlMillis },
-            bestMonth = months.maxByOrNull { it.irlMillis },
+            bestWeek = weeks.maxWithOrNull(compareBy({ it.goalDays }, { it.irlMillis })),
+            bestMonth = months.maxWithOrNull(compareBy({ it.goalDays }, { it.irlMillis })),
             fewestUnlocks = fewest,
             weekLongestSession = sessions.filter { !it.endedOn.isBefore(weekStart) }.maxByOrNull { it.irlMillis },
             weekBestDay = dayRecs.filter { !it.date.isBefore(weekStart) }.maxByOrNull { it.irlMillis },

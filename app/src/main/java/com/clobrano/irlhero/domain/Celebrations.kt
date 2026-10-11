@@ -20,6 +20,8 @@ data class CelebrationCheck(val celebrations: List<Celebration>, val judged: Jud
  * Only the most recent finished day, week and month are judged; older unjudged ones are
  * skipped. Periods that ended before [pointsFrom] (history imported at install) are never
  * celebrated, and a record needs at least one earlier, fully tracked period to beat.
+ * Week and month records count whole days that met the daily goal: more goal days than any
+ * earlier week (or month).
  */
 object Celebrations {
 
@@ -46,12 +48,16 @@ object Celebrations {
         if (week.toString() > judged.week) {
             result = result.copy(week = week.toString())
             if (!week.plusDays(6).isBefore(pointsFrom)) {
-                val totals = days.groupBy { StatsCalculator.weekStart(it.date) }
-                    .mapValues { (_, ds) -> ds.sumOf { it.irlMillis } }
-                val total = totals[week] ?: 0
-                val previousBest = totals.filterKeys { it.isBefore(week) && !it.isBefore(firstTracked) }.values.maxOrNull()
-                if (previousBest != null && previousBest > 0 && total > previousBest) {
-                    out += Celebration("Record week", Format.duration(total), "Week of ${Format.day(week)}", "Best week")
+                val byWeek = days.groupBy { StatsCalculator.weekStart(it.date) }
+                val goalDays = byWeek[week].orEmpty().count { it.goalMet }
+                val previousBest = byWeek.filterKeys { it.isBefore(week) && !it.isBefore(firstTracked) }
+                    .values.maxOfOrNull { ds -> ds.count { it.goalMet } }
+                if (previousBest != null && goalDays > previousBest) {
+                    out += Celebration(
+                        "Record week", "${goalDays} of 7 goal days",
+                        "Week of ${Format.day(week)} · ${Format.duration(byWeek[week].orEmpty().sumOf { it.irlMillis })} in real life",
+                        "Best week",
+                    )
                 }
             }
         }
@@ -62,13 +68,16 @@ object Celebrations {
         if (month.toString() > judged.month) {
             result = result.copy(month = month.toString())
             if (!month.atEndOfMonth().isBefore(pointsFrom)) {
-                val totals = days.groupBy { YearMonth.from(it.date) }
-                    .mapValues { (_, ds) -> ds.sumOf { it.irlMillis } }
-                val total = totals[month] ?: 0
-                val previousBest = totals
-                    .filterKeys { it.isBefore(month) && !it.atDay(1).isBefore(firstTracked) }.values.maxOrNull()
-                if (previousBest != null && previousBest > 0 && total > previousBest) {
-                    out += Celebration("Record month", Format.duration(total), Format.month(month), "Best month")
+                val byMonth = days.groupBy { YearMonth.from(it.date) }
+                val goalDays = byMonth[month].orEmpty().count { it.goalMet }
+                val previousBest = byMonth.filterKeys { it.isBefore(month) && !it.atDay(1).isBefore(firstTracked) }
+                    .values.maxOfOrNull { ds -> ds.count { it.goalMet } }
+                if (previousBest != null && goalDays > previousBest) {
+                    out += Celebration(
+                        "Record month", "${goalDays} of ${month.lengthOfMonth()} goal days",
+                        "${Format.month(month)} · ${Format.duration(byMonth[month].orEmpty().sumOf { it.irlMillis })} in real life",
+                        "Best month",
+                    )
                 }
             }
         }

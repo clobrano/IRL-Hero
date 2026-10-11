@@ -156,8 +156,9 @@ fun StatsScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
                 )
                 Spacer(Modifier.height(12.dp))
                 val weeks = days.groupBy { com.clobrano.irlhero.domain.StatsCalculator.weekStart(it.date) }
-                val bestWeek = weeks.maxByOrNull { (_, ds) -> ds.sumOf { it.irlMillis } }
-                LabeledValue("Best week", bestWeek?.let { (start, ds) -> "${Format.day(start)} · ${Format.duration(ds.sumOf { it.irlMillis })}" } ?: "–")
+                val bestWeek = weeks.maxWithOrNull(compareBy({ (_, ds) -> ds.count { it.goalMet } }, { (_, ds) -> ds.sumOf { it.irlMillis } }))
+                    ?.takeIf { (_, ds) -> ds.any { it.goalMet } }
+                LabeledValue("Best week", bestWeek?.let { (start, ds) -> "${Format.day(start)} · ${ds.count { it.goalMet }} goal days" } ?: "–")
                 LabeledValue("Longest session", Format.duration(days.maxOfOrNull { it.longestMillis } ?: 0))
             }
             ShareButton("Share month") { onShare(SharePeriod.MONTH) }
@@ -185,8 +186,8 @@ fun RecordsScreen(d: Dashboard, onShareRecord: (RecordShare) -> Unit) {
         SectionCard(title = "All-time records") {
             record("Longest session", r.longestSession?.let { Format.duration(it.irlMillis) }, r.longestSession?.let { Format.day(it.endedOn) })
             record("Best day", r.bestDay?.let { Format.duration(it.irlMillis) }, r.bestDay?.let { Format.day(it.date) })
-            record("Best week", r.bestWeek?.let { Format.duration(it.irlMillis) }, r.bestWeek?.let { "Week of ${Format.day(it.weekStart)}" })
-            record("Best month", r.bestMonth?.let { Format.duration(it.irlMillis) }, r.bestMonth?.let { Format.month(it.month) })
+            record("Best week", r.bestWeek?.let { "${it.goalDays} goal days" }, r.bestWeek?.let { "Week of ${Format.day(it.weekStart)} · ${Format.duration(it.irlMillis)}" })
+            record("Best month", r.bestMonth?.let { "${it.goalDays} goal days" }, r.bestMonth?.let { "${Format.month(it.month)} · ${Format.duration(it.irlMillis)}" })
             record("Fewest unlocks in a day", r.fewestUnlocks?.let { "${it.irlMillis}" }, r.fewestUnlocks?.let { Format.day(it.date) })
         }
         SectionCard(title = "This week") {
