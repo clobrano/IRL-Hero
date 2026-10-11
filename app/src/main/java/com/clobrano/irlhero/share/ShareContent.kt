@@ -95,7 +95,7 @@ object ShareContent {
                 headline = Format.duration(total),
                 subtitle = "in real life · avg ${Format.duration(avg)} a day",
                 stats = listOf(
-                    "Best week" to (d.records.bestWeek?.let { Format.duration(it.irlMillis) } ?: "–"),
+                    "Best week" to (d.records.bestWeek?.let { "${it.goalDays} goal days" } ?: "–"),
                     "Longest stretch" to Format.duration(days.maxOfOrNull { it.longestMillis } ?: 0),
                     "Goal met" to "${days.count { it.goalMet }} days",
                 ),

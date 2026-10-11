@@ -1,6 +1,8 @@
 package com.clobrano.irlhero.data
 
 import android.content.Context
+import com.clobrano.irlhero.domain.Celebration
+import com.clobrano.irlhero.domain.Celebrations
 import com.clobrano.irlhero.domain.DAY
 import com.clobrano.irlhero.domain.Dashboard
 import com.clobrano.irlhero.domain.DashboardBuilder
@@ -15,9 +17,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
-
-/** A reason to celebrate, shown once when the app is opened. */
-data class Celebration(val title: String, val value: String, val detail: String, val shareTitle: String)
 
 class Repository(context: Context) {
     private val appContext = context.applicationContext
@@ -66,47 +65,16 @@ class Repository(context: Context) {
     }
 
     /**
-     * New records and goal days since the last visit. The very first computation only sets
-     * the baseline, so the history backfilled at install does not fire a burst of confetti.
+     * Celebrations for the latest finished day, week and month, each judged once (see
+     * [Celebrations]): nothing pops up for a period still running, nor twice for the same one.
      */
     suspend fun pendingCelebrations(d: Dashboard): List<Celebration> {
-        val seen = settingsStore.celebrated()
-        val r = d.records
-        val firstRun = seen.longestSession == 0L && seen.bestDay == 0L && seen.bestWeek == 0L && seen.bestMonth == 0L
-        val out = mutableListOf<Celebration>()
-        if (!firstRun) {
-            r.longestSession?.takeIf { it.irlMillis > seen.longestSession }?.let {
-                out += Celebration("New record: longest session", Format.duration(it.irlMillis),
-                    "Previous best: ${Format.duration(seen.longestSession)}", "Longest session")
-            }
-            r.bestDay?.takeIf { it.irlMillis > seen.bestDay }?.let {
-                out += Celebration("New record: best day", Format.duration(it.irlMillis),
-                    "${Format.day(it.date)} · previous best: ${Format.duration(seen.bestDay)}", "Best day")
-            }
-            r.bestWeek?.takeIf { it.irlMillis > seen.bestWeek }?.let {
-                out += Celebration("New record: best week", Format.duration(it.irlMillis),
-                    "Week of ${Format.day(it.weekStart)}", "Best week")
-            }
-            r.bestMonth?.takeIf { it.irlMillis > seen.bestMonth }?.let {
-                out += Celebration("New record: best month", Format.duration(it.irlMillis),
-                    Format.month(it.month), "Best month")
-            }
-        }
-        val goalDay = d.allDays.lastOrNull { it.goalMet && it.date.toString() > seen.lastGoalDate }
-        if (!firstRun && goalDay != null) {
-            out += Celebration("Daily goal reached", Format.duration(goalDay.irlMillis),
-                "${Format.day(goalDay.date)} · streak ${d.hero.streakDays} days", "Daily goal")
-        }
-        settingsStore.setCelebrated(
-            Celebrated(
-                longestSession = maxOf(seen.longestSession, r.longestSession?.irlMillis ?: 0),
-                bestDay = maxOf(seen.bestDay, r.bestDay?.irlMillis ?: 0),
-                bestWeek = maxOf(seen.bestWeek, r.bestWeek?.irlMillis ?: 0),
-                bestMonth = maxOf(seen.bestMonth, r.bestMonth?.irlMillis ?: 0),
-                lastGoalDate = maxOf(seen.lastGoalDate, d.allDays.lastOrNull { it.goalMet }?.date?.toString() ?: ""),
-            )
-        )
-        return out
+        val settings = settingsStore.current()
+        val pointsFrom = Instant.ofEpochMilli(settings.pointsSinceMillis.takeIf { it > 0 } ?: d.nowMillis)
+            .atZone(ZoneId.systemDefault()).toLocalDate()
+        val check = Celebrations.check(d, settingsStore.judged(), pointsFrom)
+        settingsStore.setJudged(check.judged)
+        return check.celebrations
     }
 
     /** CSV of all scored sessions (SE-2). */
