@@ -65,6 +65,7 @@ fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier) {
 fun ProgressRing(progress: Float, size: Dp, stroke: Dp, description: String, content: @Composable () -> Unit) {
     val track = MaterialTheme.colorScheme.surfaceVariant
     val color = MaterialTheme.colorScheme.primary
+    val beyond = MaterialTheme.colorScheme.tertiary
     Box(Modifier.size(size).semantics { contentDescription = description }, contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
             val s = Stroke(width = stroke.toPx(), cap = StrokeCap.Round)
@@ -73,6 +74,8 @@ fun ProgressRing(progress: Float, size: Dp, stroke: Dp, description: String, con
             val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
             drawArc(track, 0f, 360f, false, topLeft, arcSize, style = s)
             drawArc(color, -90f, 360f * progress.coerceIn(0f, 1f), false, topLeft, arcSize, style = s)
+            // Past the goal, a second lap in another color shows how far beyond it the day went.
+            if (progress > 1f) drawArc(beyond, -90f, 360f * (progress - 1f).coerceAtMost(1f), false, topLeft, arcSize, style = s)
         }
         content()
     }

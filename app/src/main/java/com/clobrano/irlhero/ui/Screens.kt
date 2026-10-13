@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -24,18 +27,25 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.clobrano.irlhero.domain.Dashboard
+import com.clobrano.irlhero.domain.DaySummary
 import com.clobrano.irlhero.domain.Format
 import com.clobrano.irlhero.domain.HeroLevel
+import com.clobrano.irlhero.domain.Interval
+import com.clobrano.irlhero.domain.ScoredSession
 import com.clobrano.irlhero.share.RecordShare
 import com.clobrano.irlhero.share.SharePeriod
 import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -59,61 +69,104 @@ private fun ShareButton(label: String, onClick: () -> Unit) {
     }
 }
 
+/** Goal ring, timeline and session list of one day: today, or a past day picked in the calendar. */
 @Composable
-fun TodayScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
-    val t = d.today
-    ScreenColumn {
-        SectionCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ProgressRing(
-                    progress = t.goalProgress, size = 120.dp, stroke = 12.dp,
-                    description = "Daily goal ${Format.percent(t.goalProgress)} reached",
-                ) {
-                    Text(Format.percent(t.goalProgress), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.width(20.dp))
-                Column {
-                    Text(Format.duration(t.irlMillis), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-                    Text("in real life today", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Text("${Format.percent(t.irlRatio)} of your waking day · goal ${Format.duration(t.goalMillis)}", style = MaterialTheme.typography.bodySmall)
-                }
+private fun DayOverview(
+    t: DaySummary,
+    dayStart: Long,
+    dayEnd: Long,
+    now: Long,
+    waking: List<Interval>,
+    sessions: List<ScoredSession>,
+    caption: String,
+    timelineTitle: String,
+    sessionsTitle: String,
+    emptySessions: String,
+    stats: List<Pair<String, String>>,
+) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ProgressRing(
+                progress = t.goalProgress, size = 120.dp, stroke = 12.dp,
+                description = "Daily goal ${Format.percent(t.goalProgress)} reached",
+            ) {
+                Text(Format.percent(t.goalProgress), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(16.dp))
-            StatRow(
-                listOf(
-                    "Last session" to (d.lastSession?.let { Format.duration(it.irlMillis) } ?: "–"),
-                    "Longest today" to Format.duration(t.longestMillis),
-                    "Streak" to "${d.hero.streakDays} d",
-                )
-            )
-        }
-        SectionCard(title = "Your day") {
-            DayTimeline(
-                dayStart = d.todayStartMillis, dayEnd = d.todayEndMillis, now = d.nowMillis,
-                waking = d.todayWaking, sessions = d.todaySessions,
-                description = "Timeline of today: ${t.sessions} IRL sessions totalling ${Format.duration(t.irlMillis)}",
-            )
-            Spacer(Modifier.height(12.dp))
-            StatRow(listOf("Sessions" to "${t.sessions}", "Unlocks" to "${t.unlocks}", "Glances" to "${t.glances}"))
-        }
-        SectionCard(title = "Today's sessions") {
-            val list = d.todaySessions.filter { it.irlMillis > 0 }.sortedByDescending { it.session.endMillis }
-            if (list.isEmpty()) {
-                Text("Lock your phone to start your first session.", style = MaterialTheme.typography.bodyMedium)
-            } else {
-                list.forEach {
-                    LabeledValue("${clock(it.session.startMillis)} – ${clock(it.session.endMillis)}", Format.duration(it.irlMillis))
-                }
+            Spacer(Modifier.width(20.dp))
+            Column {
+                Text(Format.duration(t.irlMillis), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+                Text(caption, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                Text("${Format.percent(t.irlRatio)} of your waking day · goal ${Format.duration(t.goalMillis)}", style = MaterialTheme.typography.bodySmall)
             }
         }
-        ShareButton("Share today") { onShare(SharePeriod.DAY) }
+        Spacer(Modifier.height(16.dp))
+        StatRow(stats)
+    }
+    SectionCard(title = timelineTitle) {
+        DayTimeline(
+            dayStart = dayStart, dayEnd = dayEnd, now = now, waking = waking, sessions = sessions,
+            description = "Timeline: ${t.sessions} IRL sessions totalling ${Format.duration(t.irlMillis)}",
+        )
+        Spacer(Modifier.height(12.dp))
+        StatRow(listOf("Sessions" to "${t.sessions}", "Unlocks" to "${t.unlocks}", "Glances" to "${t.glances}"))
+    }
+    SectionCard(title = sessionsTitle) {
+        val list = sessions.filter { it.irlMillis > 0 }.sortedByDescending { it.session.endMillis }
+        if (list.isEmpty()) {
+            Text(emptySessions, style = MaterialTheme.typography.bodyMedium)
+        } else {
+            list.forEach {
+                LabeledValue("${clock(it.session.startMillis)} – ${clock(it.session.endMillis)}", Format.duration(it.irlMillis))
+            }
+        }
     }
 }
 
 @Composable
-fun StatsScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
+fun TodayScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
+    val t = d.today
+    ScreenColumn {
+        DayOverview(
+            t, d.todayStartMillis, d.todayEndMillis, d.nowMillis, d.todayWaking, d.todaySessions,
+            caption = "in real life today", timelineTitle = "Your day", sessionsTitle = "Today's sessions",
+            emptySessions = "Lock your phone to start your first session.",
+            stats = listOf(
+                "Last session" to (d.lastSession?.let { Format.duration(it.irlMillis) } ?: "–"),
+                "Longest today" to Format.duration(t.longestMillis),
+                "Streak" to "${d.hero.streakDays} d",
+            ),
+        )
+        ShareButton("Share today") { onShare(SharePeriod.DAY) }
+    }
+}
+
+/** A past day, opened from the month calendar: the same view as Today, minus what only makes sense live. */
+@Composable
+fun DayScreen(d: Dashboard, date: LocalDate) {
+    val calc = d.calc
+    val t = remember(d, date) { calc.day(date) }
+    val dayStart = calc.startOfDay(date)
+    val dayEnd = calc.startOfDay(date.plusDays(1))
+    ScreenColumn {
+        DayOverview(
+            t, dayStart, dayEnd, minOf(d.nowMillis, dayEnd), calc.wakingIntervals(date), remember(d, date) { calc.sessionsOn(date) },
+            caption = "in real life", timelineTitle = "The day", sessionsTitle = "Sessions",
+            emptySessions = "No IRL sessions this day.",
+            stats = listOf(
+                "Longest" to Format.duration(t.longestMillis),
+                "Goal" to if (t.goalMet) "Met" else "Missed",
+                "Unlocks" to "${t.unlocks}",
+            ),
+        )
+    }
+}
+
+@Composable
+fun StatsScreen(d: Dashboard, onShare: (SharePeriod) -> Unit, onOpenDay: (LocalDate) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    // Months back from the current one, to browse history in the calendar.
+    var monthsBack by rememberSaveable { mutableIntStateOf(0) }
     ScreenColumn {
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             listOf("Week", "Month").forEachIndexed { i, label ->
@@ -142,10 +195,30 @@ fun StatsScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
             }
             ShareButton("Share week") { onShare(SharePeriod.WEEK) }
         } else {
-            val days = d.monthDays.filter { !it.date.isAfter(today) }
+            val oldest = YearMonth.from(d.allDays.firstOrNull()?.date ?: today)
+            val month = d.month.minusMonths(monthsBack.toLong())
+            val monthDays = if (monthsBack == 0) d.monthDays else remember(d, month) { d.calc.days(month.atDay(1), month.atEndOfMonth()) }
+            val days = monthDays.filter { !it.date.isAfter(today) }
             val total = days.sumOf { it.irlMillis }
-            SectionCard(title = Format.month(d.month)) {
-                MonthHeatmap(d.monthDays, today)
+            SectionCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { monthsBack++ }, enabled = month.isAfter(oldest)) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous month")
+                    }
+                    Text(
+                        Format.month(month), Modifier.weight(1f), textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    IconButton(onClick = { monthsBack-- }, enabled = monthsBack > 0) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next month")
+                    }
+                }
+                Text(
+                    "Tap a day to see it.", Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                MonthHeatmap(monthDays, today, onOpenDay)
                 Spacer(Modifier.height(16.dp))
                 StatRow(
                     listOf(
@@ -161,7 +234,7 @@ fun StatsScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
                 LabeledValue("Best week", bestWeek?.let { (start, ds) -> "${Format.day(start)} · ${ds.count { it.goalMet }} goal days" } ?: "–")
                 LabeledValue("Longest session", Format.duration(days.maxOfOrNull { it.longestMillis } ?: 0))
             }
-            ShareButton("Share month") { onShare(SharePeriod.MONTH) }
+            if (monthsBack == 0) ShareButton("Share month") { onShare(SharePeriod.MONTH) }
         }
     }
 }

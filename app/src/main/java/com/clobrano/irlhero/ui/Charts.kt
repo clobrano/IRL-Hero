@@ -1,6 +1,7 @@
 package com.clobrano.irlhero.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -119,7 +120,7 @@ fun WeekBars(days: List<DaySummary>, today: LocalDate) {
 
 /** Calendar heatmap shaded by daily IRL time against the goal (ST-4). */
 @Composable
-fun MonthHeatmap(days: List<DaySummary>, today: LocalDate) {
+fun MonthHeatmap(days: List<DaySummary>, today: LocalDate, onDayClick: (LocalDate) -> Unit = {}) {
     val accent = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.surfaceVariant
     val offset = days.first().date.dayOfWeek.value - 1
@@ -144,7 +145,13 @@ fun MonthHeatmap(days: List<DaySummary>, today: LocalDate) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (i in 0 until 7) {
                     val d = week.getOrNull(i)
-                    Box(Modifier.weight(1f).aspectRatio(1f), contentAlignment = Alignment.Center) {
+                    val clickable = d != null && !d.date.isAfter(today)
+                    Box(
+                        Modifier.weight(1f).aspectRatio(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .then(if (clickable) Modifier.clickable(onClickLabel = "Show day") { onDayClick(d!!.date) } else Modifier),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         if (d != null) {
                             val ratio = if (d.goalMillis > 0) (d.irlMillis.toFloat() / d.goalMillis).coerceIn(0f, 1f) else 0f
                             val future = d.date.isAfter(today)

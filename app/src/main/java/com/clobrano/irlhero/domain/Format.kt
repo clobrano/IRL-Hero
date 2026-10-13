@@ -20,9 +20,11 @@ object Format {
     fun percent(ratio: Float): String = "${(ratio * 100).toInt()}%"
 
     private val dayFormat = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+    private val dayFullFormat = DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.ENGLISH)
     private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
 
     fun day(date: LocalDate): String = date.format(dayFormat)
+    fun dayFull(date: LocalDate): String = date.format(dayFullFormat)
     fun week(start: LocalDate): String = "${day(start)} – ${day(start.plusDays(6))}"
     fun month(month: YearMonth): String = month.format(monthFormat)
 }
