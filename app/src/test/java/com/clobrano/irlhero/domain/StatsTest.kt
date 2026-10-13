@@ -62,6 +62,14 @@ class StatsTest {
     }
 
     @Test
+    fun `goal progress keeps growing past 100 percent`() {
+        // 8 h goal; 9 h 36 m in real life is 120% of it.
+        val c = calc(Session(at(day, 8), at(day, 17, 36), 0))
+        assertEquals(1.2f, c.day(day).goalProgress, 0.001f)
+        assertEquals("120%", Format.percent(c.day(day).goalProgress))
+    }
+
+    @Test
     fun `running session counts toward today until now when asked`() {
         val events = listOf(
             ScreenEvent(EventType.SCREEN_OFF, at(day, 9)),

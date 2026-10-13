@@ -1,5 +1,6 @@
 package com.clobrano.irlhero.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -30,9 +31,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import com.clobrano.irlhero.domain.Format
 import com.clobrano.irlhero.share.RecordShare
 import com.clobrano.irlhero.share.ShareContent
 import com.clobrano.irlhero.share.ShareItem
+import java.time.LocalDate
 
 private data class Tab(val label: String, val icon: ImageVector)
 
@@ -52,15 +55,21 @@ fun IrlHeroApp(vm: MainViewModel, state: UiState) {
     }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    // A past day opened from the month calendar (ISO date), shown over the Stats tab.
+    var openDay by rememberSaveable { mutableStateOf<String?>(null) }
+    val dayView = openDay?.let { LocalDate.parse(it) }?.takeIf { !showSettings }
+    BackHandler(enabled = dayView != null) { openDay = null }
     var share by remember { mutableStateOf<ShareItem?>(null) }
     val context = LocalContext.current
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (showSettings) "Settings" else tabs[tab].label) },
+                title = { Text(if (showSettings) "Settings" else dayView?.let { Format.dayFull(it) } ?: tabs[tab].label) },
                 navigationIcon = {
-                    if (showSettings) IconButton(onClick = { showSettings = false }) {
+                    if (dayView != null) IconButton(onClick = { openDay = null }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    } else if (showSettings) IconButton(onClick = { showSettings = false }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -75,7 +84,7 @@ fun IrlHeroApp(vm: MainViewModel, state: UiState) {
             if (!showSettings) NavigationBar {
                 tabs.forEachIndexed { i, t ->
                     NavigationBarItem(
-                        selected = tab == i, onClick = { tab = i },
+                        selected = tab == i, onClick = { tab = i; openDay = null },
                         icon = { Icon(t.icon, contentDescription = null) }, label = { Text(t.label) },
                     )
                 }
@@ -91,9 +100,10 @@ fun IrlHeroApp(vm: MainViewModel, state: UiState) {
                 )
                 !state.hasUsageAccess -> AccessMissing()
                 d == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                dayView != null -> DayScreen(d, dayView)
                 else -> when (tab) {
                     0 -> TodayScreen(d) { share = ShareContent.build(d, it) }
-                    1 -> StatsScreen(d) { share = ShareContent.build(d, it) }
+                    1 -> StatsScreen(d, onShare = { share = ShareContent.build(d, it) }, onOpenDay = { openDay = it.toString() })
                     2 -> RecordsScreen(d) { r -> share = ShareContent.record(d, r) }
                     else -> HeroScreen(d)
                 }

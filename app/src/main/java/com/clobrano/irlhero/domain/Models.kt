@@ -59,7 +59,8 @@ data class DaySummary(
 ) {
     val goalMet: Boolean get() = goalMillis > 0 && irlMillis >= goalMillis
     val irlRatio: Float get() = if (wakingElapsedMillis > 0) irlMillis.toFloat() / wakingElapsedMillis else 0f
-    val goalProgress: Float get() = if (goalMillis > 0) (irlMillis.toFloat() / goalMillis).coerceAtMost(1f) else 0f
+    /** IRL time against the goal; keeps growing past 1 (100%) to show by how much the goal was beaten. */
+    val goalProgress: Float get() = if (goalMillis > 0) irlMillis.toFloat() / goalMillis else 0f
 }
 
 /** A session as seen from one day: only the part outside the sleep window counts. */
