@@ -14,7 +14,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.clobrano.irlhero.domain.Dashboard
 import com.clobrano.irlhero.domain.DaySummary
 import com.clobrano.irlhero.domain.Format
+import com.clobrano.irlhero.domain.GoalOutlook
 import com.clobrano.irlhero.domain.HeroLevel
 import com.clobrano.irlhero.domain.Interval
 import com.clobrano.irlhero.domain.ScoredSession
@@ -127,6 +131,7 @@ private fun DayOverview(
 fun TodayScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
     val t = d.today
     ScreenColumn {
+        GoalWarning(GoalOutlook.of(t))
         DayOverview(
             t, d.todayStartMillis, d.todayEndMillis, d.nowMillis, d.todayWaking, d.todaySessions,
             caption = "in real life today", timelineTitle = "Your day", sessionsTitle = "Today's sessions",
@@ -138,6 +143,35 @@ fun TodayScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
             ),
         )
         ShareButton("Share today") { onShare(SharePeriod.DAY) }
+    }
+}
+
+/** Shown on Today when the goal needs most of the time left, or can no longer be met. */
+@Composable
+private fun GoalWarning(o: GoalOutlook) {
+    val (title, text) = when (o.status) {
+        GoalOutlook.Status.AT_RISK -> "Goal at risk" to
+            "You need ${Format.duration(o.neededMillis)} more away from your phone, and only ${Format.duration(o.remainingMillis)} of your day is left."
+        GoalOutlook.Status.OUT_OF_REACH -> "Goal out of reach today" to
+            "${Format.duration(o.neededMillis)} to go, but only ${Format.duration(o.remainingMillis)} of your day is left. Every minute away still counts."
+        else -> return
+    }
+    val outOfReach = o.status == GoalOutlook.Status.OUT_OF_REACH
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (outOfReach) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = if (outOfReach) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer,
+        ),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.WarningAmber, contentDescription = null)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(text, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
     }
 }
 

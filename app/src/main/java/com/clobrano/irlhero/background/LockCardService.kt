@@ -21,7 +21,9 @@ import com.clobrano.irlhero.MainActivity
 import com.clobrano.irlhero.R
 import com.clobrano.irlhero.data.Repository
 import com.clobrano.irlhero.domain.Format
+import com.clobrano.irlhero.domain.GoalOutlook
 import com.clobrano.irlhero.domain.LockTimer
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -100,18 +102,40 @@ class LockCardService : LifecycleService() {
                 Format.percent(d.today.goalProgress),
                 resources.getQuantityString(R.plurals.streak_days, d.hero.streakDays, d.hero.streakDays),
             )
+            val outlook = GoalOutlook.of(d.today)
+            val warning = when (outlook.status) {
+                GoalOutlook.Status.AT_RISK -> getString(
+                    R.string.card_goal_at_risk, Format.duration(outlook.neededMillis), Format.duration(outlook.remainingMillis),
+                )
+                GoalOutlook.Status.OUT_OF_REACH -> getString(R.string.card_goal_out_of_reach)
+                else -> null
+            }
+            // Phone use can make the outlook worse without any screen event: look again when it would.
+            scheduleOutlookCheck(outlook.worsensInMillis)
             val locked = timer.lockedAt
             // While locked, "last session" is the one before the session running now.
             val lastSession = if (locked != null) d.lastClosedSession else d.lastSession?.session
             val last = lastSession?.let { Format.duration(d.calc.irlOf(it)) } ?: "–"
             val details = getString(R.string.card_details, Format.duration(d.today.longestMillis), last, d.hero.level.title)
             val notification = if (locked != null) {
-                build(getString(R.string.card_title_locked), stats, details, chronometerBase = locked)
+                build(getString(R.string.card_title_locked), warning ?: stats, listOfNotNull(warning?.let { stats }, details).joinToString("\n"), chronometerBase = locked)
             } else {
-                build(getString(R.string.card_title_idle), getString(R.string.card_summary, last, Format.duration(d.today.irlMillis)), "$stats\n$details")
+                val summary = getString(R.string.card_summary, last, Format.duration(d.today.irlMillis))
+                build(getString(R.string.card_title_idle), warning ?: summary, listOfNotNull(warning?.let { summary }, stats, details).joinToString("\n"))
             }
             lastNotification = notification
             getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+        }
+    }
+
+    private var outlookCheck: Job? = null
+
+    private fun scheduleOutlookCheck(inMillis: Long?) {
+        outlookCheck?.cancel()
+        if (inMillis == null) return
+        outlookCheck = lifecycleScope.launch {
+            delay(inMillis + OUTLOOK_CHECK_SLACK_MILLIS)
+            refresh()
         }
     }
 
@@ -153,6 +177,7 @@ class LockCardService : LifecycleService() {
          */
         const val CHANNEL_ID = "lock_card_v2"
         private const val LATE_EVENTS_DELAY_MILLIS = 5_000L
+        private const val OUTLOOK_CHECK_SLACK_MILLIS = 30_000L
         private const val OLD_CHANNEL_ID = "lock_card"
         private const val NOTIFICATION_ID = 1
 
