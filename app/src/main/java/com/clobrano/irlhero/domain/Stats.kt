@@ -75,7 +75,7 @@ class StatsCalculator(
             irlMillis = irl,
             wakingElapsedMillis = wakingElapsed,
             wakingTotalMillis = wakingTotal,
-            goalMillis = wakingTotal * rules.goalPercent / 100,
+            goalMillis = rules.goalMillis(wakingTotal),
             longestMillis = ended.maxOfOrNull { irlOf(it) } ?: 0L,
             sessions = ended.count { irlOf(it) > 0 },
             unlocks = log.unlocks.count { it in dayStart until dayEnd },

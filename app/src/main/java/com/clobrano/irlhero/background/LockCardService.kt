@@ -104,11 +104,15 @@ class LockCardService : LifecycleService() {
             )
             val outlook = GoalOutlook.of(d.today)
             val warning = when (outlook.status) {
-                GoalOutlook.Status.AT_RISK -> getString(
-                    R.string.card_goal_at_risk, Format.duration(outlook.neededMillis), Format.duration(outlook.remainingMillis),
-                )
-                GoalOutlook.Status.OUT_OF_REACH -> getString(R.string.card_goal_out_of_reach)
+                GoalOutlook.Status.AT_RISK -> getString(R.string.card_goal_at_risk, Format.duration(outlook.phoneLeftMillis))
+                GoalOutlook.Status.OUT_OF_REACH -> getString(R.string.card_goal_out_of_reach, Format.duration(-outlook.phoneLeftMillis))
                 else -> null
+            }
+            val t = d.today
+            val phone = if (t.phoneLeftMillis >= 0) {
+                getString(R.string.card_phone_left, Format.duration(t.phoneMillis), Format.duration(t.phoneLeftMillis))
+            } else {
+                getString(R.string.card_phone_over, Format.duration(t.phoneMillis), Format.duration(-t.phoneLeftMillis))
             }
             // Phone use can make the outlook worse without any screen event: look again when it would.
             scheduleOutlookCheck(outlook.worsensInMillis)
@@ -118,10 +122,10 @@ class LockCardService : LifecycleService() {
             val last = lastSession?.let { Format.duration(d.calc.irlOf(it)) } ?: "–"
             val details = getString(R.string.card_details, Format.duration(d.today.longestMillis), last, d.hero.level.title)
             val notification = if (locked != null) {
-                build(getString(R.string.card_title_locked), warning ?: stats, listOfNotNull(warning?.let { stats }, details).joinToString("\n"), chronometerBase = locked)
+                build(getString(R.string.card_title_locked), warning ?: phone, listOfNotNull(warning?.let { phone }, stats, details).joinToString("\n"), chronometerBase = locked)
             } else {
                 val summary = getString(R.string.card_summary, last, Format.duration(d.today.irlMillis))
-                build(getString(R.string.card_title_idle), warning ?: summary, listOfNotNull(warning?.let { summary }, stats, details).joinToString("\n"))
+                build(getString(R.string.card_title_idle), warning ?: phone, listOfNotNull(warning?.let { phone }, summary, stats, details).joinToString("\n"))
             }
             lastNotification = notification
             getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)

@@ -19,9 +19,14 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** How the daily goal is set: a share of waking hours in real life, or a cap on phone time. */
+enum class GoalMode { PERCENT, PHONE_TIME }
+
 data class Settings(
     val onboarded: Boolean = false,
     val goalPercent: Int = 50,
+    val goalMode: GoalMode = GoalMode.PERCENT,
+    val phoneAllowanceMinutes: Int = 3 * 60,
     val minSessionMinutes: Int = 2,
     val sleepStartMinute: Int = 23 * 60,
     val sleepEndMinute: Int = 7 * 60,
@@ -36,13 +41,19 @@ data class Settings(
             sleepStartMinute = sleepStartMinute,
             sleepEndMinute = sleepEndMinute,
             goalPercent = goalPercent,
+            phoneAllowanceMinutes = phoneAllowanceMinutes.takeIf { goalMode == GoalMode.PHONE_TIME },
         )
+
+    /** Waking minutes per day (the day minus the sleep window). */
+    val wakingMinutes: Int get() = 1440 - (sleepEndMinute - sleepStartMinute).mod(1440)
 }
 
 class SettingsStore(private val context: Context) {
     private object Keys {
         val onboarded = booleanPreferencesKey("onboarded")
         val goal = intPreferencesKey("goal_percent")
+        val goalMode = stringPreferencesKey("goal_mode")
+        val phoneAllowance = intPreferencesKey("phone_allowance_minutes")
         val minSession = intPreferencesKey("min_session_minutes")
         val sleepStart = intPreferencesKey("sleep_start")
         val sleepEnd = intPreferencesKey("sleep_end")
@@ -62,6 +73,8 @@ class SettingsStore(private val context: Context) {
     private fun Preferences.toSettings() = Settings(
         onboarded = this[Keys.onboarded] ?: false,
         goalPercent = this[Keys.goal] ?: 50,
+        goalMode = this[Keys.goalMode]?.let { runCatching { GoalMode.valueOf(it) }.getOrNull() } ?: GoalMode.PERCENT,
+        phoneAllowanceMinutes = this[Keys.phoneAllowance] ?: (3 * 60),
         minSessionMinutes = this[Keys.minSession] ?: 2,
         sleepStartMinute = this[Keys.sleepStart] ?: (23 * 60),
         sleepEndMinute = this[Keys.sleepEnd] ?: (7 * 60),
@@ -75,6 +88,8 @@ class SettingsStore(private val context: Context) {
             val s = transform(prefs.toSettings())
             prefs[Keys.onboarded] = s.onboarded
             prefs[Keys.goal] = s.goalPercent
+            prefs[Keys.goalMode] = s.goalMode.name
+            prefs[Keys.phoneAllowance] = s.phoneAllowanceMinutes
             prefs[Keys.minSession] = s.minSessionMinutes
             prefs[Keys.sleepStart] = s.sleepStartMinute
             prefs[Keys.sleepEnd] = s.sleepEndMinute

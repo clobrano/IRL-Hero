@@ -87,6 +87,7 @@ private fun DayOverview(
     sessionsTitle: String,
     emptySessions: String,
     stats: List<Pair<String, String>>,
+    phoneLine: String,
 ) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -101,7 +102,7 @@ private fun DayOverview(
                 Text(Format.duration(t.irlMillis), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
                 Text(caption, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                Text("${Format.percent(t.irlRatio)} of your waking day · goal ${Format.duration(t.goalMillis)}", style = MaterialTheme.typography.bodySmall)
+                Text(phoneLine, style = MaterialTheme.typography.bodySmall)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -133,7 +134,8 @@ fun TodayScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
     ScreenColumn {
         GoalWarning(GoalOutlook.of(t))
         DayOverview(
-            t, d.todayStartMillis, d.todayEndMillis, d.nowMillis, d.todayWaking, d.todaySessions,
+            phoneLine = phoneToday(t),
+            t = t, dayStart = d.todayStartMillis, dayEnd = d.todayEndMillis, now = d.nowMillis, waking = d.todayWaking, sessions = d.todaySessions,
             caption = "in real life today", timelineTitle = "Your day", sessionsTitle = "Today's sessions",
             emptySessions = "Lock your phone to start your first session.",
             stats = listOf(
@@ -146,14 +148,23 @@ fun TodayScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
     }
 }
 
-/** Shown on Today when the goal needs most of the time left, or can no longer be met. */
+/** Phone time used today and what the goal still allows. */
+private fun phoneToday(t: DaySummary): String {
+    val used = "${Format.duration(t.phoneMillis)} on the phone today"
+    return when {
+        t.phoneLeftMillis >= 0 -> "$used · ${Format.duration(t.phoneLeftMillis)} left"
+        else -> "$used · ${Format.duration(-t.phoneLeftMillis)} over"
+    }
+}
+
+/** Shown on Today late in the day when little phone time is left, or once the goal can no longer be met. */
 @Composable
 private fun GoalWarning(o: GoalOutlook) {
     val (title, text) = when (o.status) {
         GoalOutlook.Status.AT_RISK -> "Goal at risk" to
-            "You need ${Format.duration(o.neededMillis)} more away from your phone, and only ${Format.duration(o.remainingMillis)} of your day is left."
+            "You can use your phone for ${Format.duration(o.phoneLeftMillis)} more today and still make it."
         GoalOutlook.Status.OUT_OF_REACH -> "Goal out of reach today" to
-            "${Format.duration(o.neededMillis)} to go, but only ${Format.duration(o.remainingMillis)} of your day is left. Every minute away still counts."
+            "${Format.duration(o.phoneUsedMillis)} on the phone, ${Format.duration(-o.phoneLeftMillis)} over what your goal allows. Every minute away still counts."
         else -> return
     }
     val outOfReach = o.status == GoalOutlook.Status.OUT_OF_REACH
@@ -184,7 +195,9 @@ fun DayScreen(d: Dashboard, date: LocalDate) {
     val dayEnd = calc.startOfDay(date.plusDays(1))
     ScreenColumn {
         DayOverview(
-            t, dayStart, dayEnd, minOf(d.nowMillis, dayEnd), calc.wakingIntervals(date), remember(d, date) { calc.sessionsOn(date) },
+            phoneLine = "${Format.duration(t.phoneMillis)} on the phone of ${Format.duration(t.phoneAllowanceMillis)} allowed",
+            t = t, dayStart = dayStart, dayEnd = dayEnd, now = minOf(d.nowMillis, dayEnd), waking = calc.wakingIntervals(date),
+            sessions = remember(d, date) { calc.sessionsOn(date) },
             caption = "in real life", timelineTitle = "The day", sessionsTitle = "Sessions",
             emptySessions = "No IRL sessions this day.",
             stats = listOf(
