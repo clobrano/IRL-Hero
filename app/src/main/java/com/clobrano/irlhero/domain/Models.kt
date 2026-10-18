@@ -16,7 +16,14 @@ data class SessionRules(
     val sleepEndMinute: Int = 7 * 60,
     /** Daily goal as a share of waking hours (0..100). */
     val goalPercent: Int = 50,
-)
+    /** If set, the goal is instead "at most this many minutes on the phone": IRL goal = waking time minus this. */
+    val phoneAllowanceMinutes: Int? = null,
+) {
+    fun goalMillis(wakingTotalMillis: Long): Long = when (val allowance = phoneAllowanceMinutes) {
+        null -> wakingTotalMillis * goalPercent / 100
+        else -> (wakingTotalMillis - allowance * MINUTE).coerceAtLeast(0)
+    }
+}
 
 /** A valid IRL session: from lock to the next unlock. */
 data class Session(
@@ -57,6 +64,12 @@ data class DaySummary(
     val unlocks: Int,
     val glances: Int,
 ) {
+    /** Waking time so far not spent in real life, i.e. on the phone. */
+    val phoneMillis: Long get() = (wakingElapsedMillis - irlMillis).coerceAtLeast(0)
+    /** Phone time the goal allows over the whole waking day. */
+    val phoneAllowanceMillis: Long get() = (wakingTotalMillis - goalMillis).coerceAtLeast(0)
+    /** Phone time still allowed today without missing the goal (negative once over). */
+    val phoneLeftMillis: Long get() = phoneAllowanceMillis - phoneMillis
     val goalMet: Boolean get() = goalMillis > 0 && irlMillis >= goalMillis
     val irlRatio: Float get() = if (wakingElapsedMillis > 0) irlMillis.toFloat() / wakingElapsedMillis else 0f
     /** IRL time against the goal; keeps growing past 1 (100%) to show by how much the goal was beaten. */

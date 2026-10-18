@@ -1,5 +1,11 @@
 package com.clobrano.irlhero.ui
 
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import com.clobrano.irlhero.data.GoalMode
+import com.clobrano.irlhero.domain.Format
+import com.clobrano.irlhero.domain.MINUTE
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.provider.Settings
@@ -120,11 +126,46 @@ fun SleepAndGoalEditor(s: AppSettings, onSettings: ((AppSettings) -> AppSettings
         Stepper("Sleep ends", hhmm(s.sleepEndMinute),
             onMinus = { onSettings { it.copy(sleepEndMinute = (it.sleepEndMinute - 30).mod(1440)) } },
             onPlus = { onSettings { it.copy(sleepEndMinute = (it.sleepEndMinute + 30).mod(1440)) } })
-        Stepper("Daily goal", "${s.goalPercent}% of waking hours",
-            onMinus = { onSettings { it.copy(goalPercent = (it.goalPercent - 5).coerceAtLeast(5)) } },
-            onPlus = { onSettings { it.copy(goalPercent = (it.goalPercent + 5).coerceAtMost(95)) } })
+        Text("Daily goal", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf(GoalMode.PERCENT to "Time in real life", GoalMode.PHONE_TIME to "Max phone time").forEachIndexed { i, (mode, label) ->
+                SegmentedButton(
+                    selected = s.goalMode == mode, shape = SegmentedButtonDefaults.itemShape(i, 2),
+                    onClick = {
+                        // Switch keeping the same goal, rounded to the new mode's steps.
+                        onSettings {
+                            val irl = it.rules.goalMillis(it.wakingMinutes * MINUTE) / MINUTE
+                            when (mode) {
+                                GoalMode.PERCENT -> it.copy(goalMode = mode, goalPercent = percentStep((irl * 100 / it.wakingMinutes.coerceAtLeast(1)).toInt()))
+                                GoalMode.PHONE_TIME -> it.copy(goalMode = mode, phoneAllowanceMinutes = phoneStep((it.wakingMinutes - irl).toInt(), it.wakingMinutes))
+                            }
+                        }
+                    },
+                ) { Text(label) }
+            }
+        }
+        val waking = s.wakingMinutes
+        val irlMinutes = s.rules.goalMillis(waking * MINUTE) / MINUTE
+        val phoneMinutes = waking - irlMinutes
+        if (s.goalMode == GoalMode.PERCENT) {
+            Stepper("In real life", "${s.goalPercent}% of waking hours",
+                onMinus = { onSettings { it.copy(goalPercent = percentStep(it.goalPercent - 5)) } },
+                onPlus = { onSettings { it.copy(goalPercent = percentStep(it.goalPercent + 5)) } })
+        } else {
+            Stepper("On the phone", "At most ${Format.duration(s.phoneAllowanceMinutes * MINUTE)} a day",
+                onMinus = { onSettings { it.copy(phoneAllowanceMinutes = phoneStep(it.phoneAllowanceMinutes - 15, it.wakingMinutes)) } },
+                onPlus = { onSettings { it.copy(phoneAllowanceMinutes = phoneStep(it.phoneAllowanceMinutes + 15, it.wakingMinutes)) } })
+        }
+        Text(
+            "${Format.duration(irlMinutes * MINUTE)} in real life (${irlMinutes * 100 / waking.coerceAtLeast(1)}%) · " +
+                "up to ${Format.duration(phoneMinutes * MINUTE)} on the phone, out of ${Format.duration(waking * MINUTE)} awake.",
+            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
+        )
     }
 }
+
+private fun percentStep(value: Int) = value.coerceIn(5, 95)
+private fun phoneStep(minutes: Int, wakingMinutes: Int) = (minutes / 15 * 15).coerceIn(15, (wakingMinutes - 15).coerceAtLeast(15))
 
 fun hhmm(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
 
