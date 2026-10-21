@@ -17,6 +17,18 @@ object Format {
         }
     }
 
+    /** Compact duration for one-line spaces such as the lock-screen card: "7h10", "42m", "2h". */
+    fun short(millis: Long): String {
+        val totalMin = millis / MINUTE
+        val h = totalMin / 60
+        val m = totalMin % 60
+        return when {
+            h == 0L -> "${m}m"
+            m == 0L -> "${h}h"
+            else -> "${h}h${"%02d".format(m)}"
+        }
+    }
+
     fun percent(ratio: Float): String = "${(ratio * 100).toInt()}%"
 
     private val dayFormat = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)

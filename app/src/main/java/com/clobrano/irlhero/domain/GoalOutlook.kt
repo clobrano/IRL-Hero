@@ -9,6 +9,8 @@ package com.clobrano.irlhero.domain
  */
 data class GoalOutlook(
     val status: Status,
+    /** IRL time still missing to meet the goal. */
+    val neededMillis: Long,
     val phoneUsedMillis: Long,
     /** Phone time still allowed today; negative once over. */
     val phoneLeftMillis: Long,
@@ -41,7 +43,8 @@ data class GoalOutlook(
                 remaining <= FINAL_STRETCH_MILLIS && left < LOW_PHONE_LEFT_MILLIS -> Status.AT_RISK
                 else -> Status.ON_TRACK
             }
-            return GoalOutlook(status, today.phoneMillis, left, remaining)
+            val needed = (today.goalMillis - today.irlMillis).coerceAtLeast(0)
+            return GoalOutlook(status, needed, today.phoneMillis, left, remaining)
         }
     }
 }

@@ -83,6 +83,7 @@ private fun DayOverview(
     waking: List<Interval>,
     sessions: List<ScoredSession>,
     caption: String,
+    progressLine: String,
     timelineTitle: String,
     sessionsTitle: String,
     emptySessions: String,
@@ -101,8 +102,9 @@ private fun DayOverview(
             Column {
                 Text(Format.duration(t.irlMillis), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
                 Text(caption, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                Text(phoneLine, style = MaterialTheme.typography.bodySmall)
+                Text(progressLine, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                Text(phoneLine, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -134,9 +136,9 @@ fun TodayScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
     ScreenColumn {
         GoalWarning(GoalOutlook.of(t))
         DayOverview(
-            phoneLine = phoneToday(t),
+            phoneLine = phoneLine(t), progressLine = progressLine(t, short = "to go"),
             t = t, dayStart = d.todayStartMillis, dayEnd = d.todayEndMillis, now = d.nowMillis, waking = d.todayWaking, sessions = d.todaySessions,
-            caption = "in real life today", timelineTitle = "Your day", sessionsTitle = "Today's sessions",
+            caption = "of ${Format.duration(t.goalMillis)} IRL", timelineTitle = "Your day", sessionsTitle = "Today's sessions",
             emptySessions = "Lock your phone to start your first session.",
             stats = listOf(
                 "Last session" to (d.lastSession?.let { Format.duration(it.irlMillis) } ?: "–"),
@@ -148,23 +150,22 @@ fun TodayScreen(d: Dashboard, onShare: (SharePeriod) -> Unit) {
     }
 }
 
-/** Phone time used today and what the goal still allows. */
-private fun phoneToday(t: DaySummary): String {
-    val used = "${Format.duration(t.phoneMillis)} on the phone today"
-    return when {
-        t.phoneLeftMillis >= 0 -> "$used · ${Format.duration(t.phoneLeftMillis)} left"
-        else -> "$used · ${Format.duration(-t.phoneLeftMillis)} over"
-    }
-}
+/** IRL time still missing ("5 h 38 m to go"), or by how much the goal was beaten. */
+private fun progressLine(t: DaySummary, short: String): String =
+    if (t.goalMet) "Goal met · ${Format.duration(t.irlMillis - t.goalMillis)} beyond"
+    else "${Format.duration(t.goalMillis - t.irlMillis)} $short"
+
+/** Phone time used against what the goal allows: "Phone 1 h 50 m of 3 h 12 m". */
+private fun phoneLine(t: DaySummary): String =
+    "Phone ${Format.duration(t.phoneMillis)} of ${Format.duration(t.phoneAllowanceMillis)}"
 
 /** Shown on Today late in the day when little phone time is left, or once the goal can no longer be met. */
 @Composable
 private fun GoalWarning(o: GoalOutlook) {
-    val (title, text) = when (o.status) {
-        GoalOutlook.Status.AT_RISK -> "Goal at risk" to
-            "You can use your phone for ${Format.duration(o.phoneLeftMillis)} more today and still make it."
-        GoalOutlook.Status.OUT_OF_REACH -> "Goal out of reach today" to
-            "${Format.duration(o.phoneUsedMillis)} on the phone, ${Format.duration(-o.phoneLeftMillis)} over what your goal allows. Every minute away still counts."
+    val irl = "IRL: ${Format.duration(o.neededMillis)} to go, ${Format.duration(o.remainingMillis)} of day left"
+    val (title, lines) = when (o.status) {
+        GoalOutlook.Status.AT_RISK -> "Goal at risk" to listOf(irl, "Phone: only ${Format.duration(o.phoneLeftMillis)} left")
+        GoalOutlook.Status.OUT_OF_REACH -> "Goal out of reach" to listOf(irl, "Every minute away still counts")
         else -> return
     }
     val outOfReach = o.status == GoalOutlook.Status.OUT_OF_REACH
@@ -180,7 +181,7 @@ private fun GoalWarning(o: GoalOutlook) {
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(text, style = MaterialTheme.typography.bodyMedium)
+                lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
             }
         }
     }
@@ -195,10 +196,10 @@ fun DayScreen(d: Dashboard, date: LocalDate) {
     val dayEnd = calc.startOfDay(date.plusDays(1))
     ScreenColumn {
         DayOverview(
-            phoneLine = "${Format.duration(t.phoneMillis)} on the phone of ${Format.duration(t.phoneAllowanceMillis)} allowed",
+            phoneLine = phoneLine(t), progressLine = progressLine(t, short = "short"),
             t = t, dayStart = dayStart, dayEnd = dayEnd, now = minOf(d.nowMillis, dayEnd), waking = calc.wakingIntervals(date),
             sessions = remember(d, date) { calc.sessionsOn(date) },
-            caption = "in real life", timelineTitle = "The day", sessionsTitle = "Sessions",
+            caption = "of ${Format.duration(t.goalMillis)} IRL", timelineTitle = "The day", sessionsTitle = "Sessions",
             emptySessions = "No IRL sessions this day.",
             stats = listOf(
                 "Longest" to Format.duration(t.longestMillis),

@@ -41,6 +41,7 @@ class GoalOutlookTest {
         val o = GoalOutlook.of(day(phoneMinutes = 150, elapsedHours = 13.0))
         assertEquals(GoalOutlook.Status.AT_RISK, o.status)
         assertEquals(42 * MINUTE, o.worsensInMillis)
+        assertEquals(2 * HOUR + 18 * MINUTE, o.neededMillis)
     }
 
     @Test
@@ -70,5 +71,12 @@ class GoalOutlookTest {
     @Test
     fun `goal reached is met`() {
         assertEquals(GoalOutlook.Status.MET, GoalOutlook.of(day(phoneMinutes = 60, elapsedHours = 15.0)).status)
+    }
+
+    @Test
+    fun `short durations fit the lock-screen card`() {
+        assertEquals("7h10", Format.short(7 * HOUR + 10 * MINUTE))
+        assertEquals("42m", Format.short(42 * MINUTE))
+        assertEquals("2h", Format.short(2 * HOUR))
     }
 }
