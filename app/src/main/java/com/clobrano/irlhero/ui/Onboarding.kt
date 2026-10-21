@@ -157,8 +157,8 @@ fun SleepAndGoalEditor(s: AppSettings, onSettings: ((AppSettings) -> AppSettings
                 onPlus = { onSettings { it.copy(phoneAllowanceMinutes = phoneStep(it.phoneAllowanceMinutes + 15, it.wakingMinutes)) } })
         }
         Text(
-            "${Format.duration(irlMinutes * MINUTE)} in real life (${irlMinutes * 100 / waking.coerceAtLeast(1)}%) · " +
-                "up to ${Format.duration(phoneMinutes * MINUTE)} on the phone, out of ${Format.duration(waking * MINUTE)} awake.",
+            "IRL ${Format.duration(irlMinutes * MINUTE)} (${irlMinutes * 100 / waking.coerceAtLeast(1)}%) · " +
+                "Phone up to ${Format.duration(phoneMinutes * MINUTE)} · ${Format.duration(waking * MINUTE)} awake",
             style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
         )
     }
