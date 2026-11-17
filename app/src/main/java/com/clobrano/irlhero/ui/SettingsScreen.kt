@@ -64,8 +64,20 @@ fun SettingsScreen(
                 onValueChange = { v -> onSettings { it.copy(minSessionMinutes = v.toInt()) } },
                 valueRange = 1f..10f, steps = 8,
             )
+            Text("Ignore accidental unlocks", style = MaterialTheme.typography.bodyMedium)
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                val options = listOf(0, 5, 10, 20)
+                options.forEachIndexed { i, sec ->
+                    SegmentedButton(
+                        selected = s.slipSeconds == sec,
+                        onClick = { onSettings { it.copy(slipSeconds = sec) } },
+                        shape = SegmentedButtonDefaults.itemShape(i, options.size),
+                    ) { Text(if (sec == 0) "Off" else "$sec s") }
+                }
+            }
             Text(
-                "Shorter breaks are discarded. Looking at the lock screen never ends a session, and phone calls count as real life.",
+                "Shorter breaks are discarded. Looking at the lock screen never ends a session, and phone calls count as real life. " +
+                    "An unlock locked again within the set time is a slip: the session goes on, without those seconds.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
