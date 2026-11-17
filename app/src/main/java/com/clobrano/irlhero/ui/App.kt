@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +60,7 @@ fun IrlHeroApp(vm: MainViewModel, state: UiState) {
     var openDay by rememberSaveable { mutableStateOf<String?>(null) }
     val dayView = openDay?.let { LocalDate.parse(it) }?.takeIf { !showSettings }
     BackHandler(enabled = dayView != null) { openDay = null }
+    val stats = rememberSaveableStateHolder()
     var share by remember { mutableStateOf<ShareItem?>(null) }
     val context = LocalContext.current
 
@@ -103,7 +105,10 @@ fun IrlHeroApp(vm: MainViewModel, state: UiState) {
                 dayView != null -> DayScreen(d, dayView)
                 else -> when (tab) {
                     0 -> TodayScreen(d) { share = ShareContent.build(d, it) }
-                    1 -> StatsScreen(d, onShare = { share = ShareContent.build(d, it) }, onOpenDay = { openDay = it.toString() })
+                    // Keep the Week/Month choice and the browsed month while a day is open on top.
+                    1 -> stats.SaveableStateProvider("stats") {
+                        StatsScreen(d, onShare = { share = ShareContent.build(d, it) }, onOpenDay = { openDay = it.toString() })
+                    }
                     2 -> RecordsScreen(d) { r -> share = ShareContent.record(d, r) }
                     else -> HeroScreen(d)
                 }
