@@ -116,7 +116,7 @@ private fun DayOverview(
             description = "Timeline: ${t.sessions} IRL sessions totalling ${Format.duration(t.irlMillis)}",
         )
         Spacer(Modifier.height(12.dp))
-        StatRow(listOf("Sessions" to "${t.sessions}", "Unlocks" to "${t.unlocks}", "Glances" to "${t.glances}"))
+        StatRow(listOf("Sessions" to "${t.sessions}", "Unlocks" to "${t.unlocks}", "Glances" to "${t.glances}", "Slips" to "${t.slips}"))
     }
     SectionCard(title = sessionsTitle) {
         val list = sessions.filter { it.irlMillis > 0 }.sortedByDescending { it.session.endMillis }
@@ -124,7 +124,10 @@ private fun DayOverview(
             Text(emptySessions, style = MaterialTheme.typography.bodyMedium)
         } else {
             list.forEach {
-                LabeledValue("${clock(it.session.startMillis)} – ${clock(it.session.endMillis)}", Format.duration(it.irlMillis))
+                val slips = it.session.slips.size
+                val label = "${clock(it.session.startMillis)} – ${clock(it.session.endMillis)}" +
+                    if (slips > 0) " · $slips ${if (slips == 1) "slip" else "slips"}" else ""
+                LabeledValue(label, Format.duration(it.irlMillis))
             }
         }
     }

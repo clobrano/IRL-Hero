@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.clobrano.irlhero.domain.JudgedPeriods
 import com.clobrano.irlhero.domain.MINUTE
+import com.clobrano.irlhero.domain.SECOND
 import com.clobrano.irlhero.domain.SessionRules
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -28,6 +29,8 @@ data class Settings(
     val goalMode: GoalMode = GoalMode.PERCENT,
     val phoneAllowanceMinutes: Int = 3 * 60,
     val minSessionMinutes: Int = 2,
+    /** Unlocks shorter than this are slips (0 = off). */
+    val slipSeconds: Int = 10,
     val sleepStartMinute: Int = 23 * 60,
     val sleepEndMinute: Int = 7 * 60,
     val lockCardEnabled: Boolean = false,
@@ -38,6 +41,7 @@ data class Settings(
     val rules: SessionRules
         get() = SessionRules(
             minSessionMillis = minSessionMinutes * MINUTE,
+            slipMillis = slipSeconds * SECOND,
             sleepStartMinute = sleepStartMinute,
             sleepEndMinute = sleepEndMinute,
             goalPercent = goalPercent,
@@ -55,6 +59,7 @@ class SettingsStore(private val context: Context) {
         val goalMode = stringPreferencesKey("goal_mode")
         val phoneAllowance = intPreferencesKey("phone_allowance_minutes")
         val minSession = intPreferencesKey("min_session_minutes")
+        val slipSeconds = intPreferencesKey("slip_seconds")
         val sleepStart = intPreferencesKey("sleep_start")
         val sleepEnd = intPreferencesKey("sleep_end")
         val lockCard = booleanPreferencesKey("lock_card")
@@ -76,6 +81,7 @@ class SettingsStore(private val context: Context) {
         goalMode = this[Keys.goalMode]?.let { runCatching { GoalMode.valueOf(it) }.getOrNull() } ?: GoalMode.PERCENT,
         phoneAllowanceMinutes = this[Keys.phoneAllowance] ?: (3 * 60),
         minSessionMinutes = this[Keys.minSession] ?: 2,
+        slipSeconds = this[Keys.slipSeconds] ?: 10,
         sleepStartMinute = this[Keys.sleepStart] ?: (23 * 60),
         sleepEndMinute = this[Keys.sleepEnd] ?: (7 * 60),
         lockCardEnabled = this[Keys.lockCard] ?: false,
@@ -91,6 +97,7 @@ class SettingsStore(private val context: Context) {
             prefs[Keys.goalMode] = s.goalMode.name
             prefs[Keys.phoneAllowance] = s.phoneAllowanceMinutes
             prefs[Keys.minSession] = s.minSessionMinutes
+            prefs[Keys.slipSeconds] = s.slipSeconds
             prefs[Keys.sleepStart] = s.sleepStartMinute
             prefs[Keys.sleepEnd] = s.sleepEndMinute
             prefs[Keys.lockCard] = s.lockCardEnabled

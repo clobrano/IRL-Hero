@@ -56,6 +56,14 @@ class StatsTest {
     }
 
     @Test
+    fun `slipped seconds are not counted as IRL time`() {
+        val slip = Interval(at(day, 9), at(day, 9) + 8 * SECOND)
+        val c = calc(Session(at(day, 8), at(day, 10), 0, listOf(slip)))
+        assertEquals(2 * HOUR - 8 * SECOND, c.day(day).irlMillis)
+        assertEquals(1, c.day(day).slips)
+    }
+
+    @Test
     fun `goal met at half of waking hours`() {
         val c = calc(Session(at(day, 8), at(day, 16), 0))
         assertTrue(c.day(day).goalMet)

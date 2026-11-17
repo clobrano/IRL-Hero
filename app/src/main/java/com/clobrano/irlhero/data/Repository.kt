@@ -83,7 +83,7 @@ class Repository(context: Context) {
         val file = File(dir, "irl-hero-sessions.csv")
         val zone = ZoneId.systemDefault()
         file.bufferedWriter().use { w ->
-            w.appendLine("start,end,duration_minutes,irl_minutes,glances")
+            w.appendLine("start,end,duration_minutes,irl_minutes,glances,slips")
             for (s in d.sessions) {
                 w.appendLine(
                     listOf(
@@ -92,6 +92,7 @@ class Repository(context: Context) {
                         s.durationMillis / MINUTE,
                         d.calc.irlOf(s) / MINUTE,
                         s.glances,
+                        s.slips.size,
                     ).joinToString(",")
                 )
             }

@@ -131,4 +131,45 @@ class SessionBuilderTest {
         val log = SessionBuilder.build(events, rules)
         assertEquals(emptyList<Session>(), log.sessions)
     }
+
+    /** Unlock at [minute] and lock again [seconds] later. */
+    private fun quickUnlock(minute: Long, seconds: Long) = listOf(
+        ev(SCREEN_ON, minute), ev(KEYGUARD_HIDDEN, minute, 1),
+        ev(SCREEN_OFF, minute, 1 + seconds), ev(KEYGUARD_SHOWN, minute, 1 + seconds),
+    )
+
+    @Test
+    fun `an unlock locked again within 10 s is a slip and the session goes on`() {
+        val events = listOf(ev(SCREEN_OFF, 0), ev(KEYGUARD_SHOWN, 0)) + quickUnlock(70, 8) +
+            listOf(ev(SCREEN_ON, 150), ev(KEYGUARD_HIDDEN, 150, 1))
+        val log = SessionBuilder.build(events, rules)
+        assertEquals(1, log.sessions.size)
+        assertEquals(listOf(Interval(70 * MINUTE + SECOND, 70 * MINUTE + 9 * SECOND)), log.sessions[0].slips)
+        assertEquals(listOf(150 * MINUTE + SECOND), log.unlocks)
+    }
+
+    @Test
+    fun `a longer unlock ends the session`() {
+        val events = listOf(ev(SCREEN_OFF, 0), ev(KEYGUARD_SHOWN, 0)) + quickUnlock(70, 15) +
+            listOf(ev(SCREEN_ON, 150), ev(KEYGUARD_HIDDEN, 150, 1))
+        val log = SessionBuilder.build(events, rules)
+        assertEquals(2, log.sessions.size)
+        assertEquals(0, log.sessions.sumOf { it.slips.size })
+    }
+
+    @Test
+    fun `every slip counts, with no limit`() {
+        val events = listOf(ev(SCREEN_OFF, 0), ev(KEYGUARD_SHOWN, 0)) +
+            (1..5L).flatMap { quickUnlock(it * 10, 3) } + listOf(ev(SCREEN_ON, 90), ev(KEYGUARD_HIDDEN, 90, 1))
+        val log = SessionBuilder.build(events, rules)
+        assertEquals(1, log.sessions.size)
+        assertEquals(5, log.sessions[0].slips.size)
+    }
+
+    @Test
+    fun `slips can be turned off`() {
+        val events = listOf(ev(SCREEN_OFF, 0), ev(KEYGUARD_SHOWN, 0)) + quickUnlock(70, 3)
+        assertEquals(1, SessionBuilder.build(events, SessionRules(slipMillis = 0)).sessions.size)
+        assertEquals(listOf(70 * MINUTE + SECOND), SessionBuilder.build(events, SessionRules(slipMillis = 0)).unlocks)
+    }
 }

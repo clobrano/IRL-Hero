@@ -10,6 +10,8 @@ data class ScreenEvent(val type: EventType, val timeMillis: Long)
 /** User-tunable rules that turn raw lock/unlock times into a fair score. */
 data class SessionRules(
     val minSessionMillis: Long = 2 * MINUTE,
+    /** An unlock followed by screen off within this long is a slip: the session goes on (0 = off). */
+    val slipMillis: Long = 10 * SECOND,
     /** Minutes after midnight when the sleep window starts (default 23:00). */
     val sleepStartMinute: Int = 23 * 60,
     /** Minutes after midnight when the sleep window ends (default 07:00). */
@@ -30,6 +32,8 @@ data class Session(
     val startMillis: Long,
     val endMillis: Long,
     val glances: Int,
+    /** Accidental unlocks the session went on through; their time is not counted as IRL. */
+    val slips: List<Interval> = emptyList(),
 ) {
     val durationMillis: Long get() = endMillis - startMillis
 }
@@ -63,6 +67,7 @@ data class DaySummary(
     val sessions: Int,
     val unlocks: Int,
     val glances: Int,
+    val slips: Int = 0,
 ) {
     /** Waking time so far not spent in real life, i.e. on the phone. */
     val phoneMillis: Long get() = (wakingElapsedMillis - irlMillis).coerceAtLeast(0)

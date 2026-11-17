@@ -8,6 +8,8 @@ package com.clobrano.irlhero.domain
  *   with no lock screen (e.g. inside the lock timeout).
  * - Turning the screen on and looking at the lock screen is a glance: allowed, counted.
  * - Calls placed or answered without unlocking never end a session.
+ * - An unlock followed by screen off within [SessionRules.slipMillis] is a slip (an accidental
+ *   unlock): the session goes on, and the unlocked seconds are not counted as IRL time.
  * - Sessions shorter than [SessionRules.minSessionMillis] are discarded.
  * - A shutdown/boot gap counts only if both are known and the gap is under 24 h.
  */
@@ -29,17 +31,25 @@ object SessionBuilder {
 
         var start: Long? = null
         var glances = 0
+        val slips = mutableListOf<Interval>()
         var locked = false
         var shutdownAt: Long? = null
 
         fun close(at: Long) {
             val s = start ?: return
-            if (at - s >= rules.minSessionMillis) sessions += Session(s, at, glances)
+            if (at - s >= rules.minSessionMillis) sessions += Session(s, at, glances, slips.toList())
             start = null
             glances = 0
+            slips.clear()
         }
 
-        fun unlock(at: Long) {
+        /** [index]: the event that unlocked, to look ahead for a quick screen off (a slip). */
+        fun unlock(at: Long, index: Int? = null) {
+            val slipEnd = if (start != null && index != null) slipEnd(sorted, index, at, rules.slipMillis) else null
+            if (slipEnd != null) {
+                slips += Interval(at, slipEnd)
+                return
+            }
             unlocks += at
             close(at)
         }
@@ -55,14 +65,14 @@ object SessionBuilder {
 
                 EventType.KEYGUARD_HIDDEN -> {
                     locked = false
-                    unlock(e.timeMillis)
+                    unlock(e.timeMillis, i)
                 }
 
                 EventType.SCREEN_ON -> if (start != null) {
                     when (nextKeyguardEvent(sorted, i)) {
                         EventType.KEYGUARD_HIDDEN -> Unit // the unlock itself closes the session
                         EventType.KEYGUARD_SHOWN -> glances++
-                        else -> if (locked) glances++ else unlock(e.timeMillis)
+                        else -> if (locked) glances++ else unlock(e.timeMillis, i)
                     }
                 }
 
@@ -94,6 +104,17 @@ object SessionBuilder {
             unlock(closeOpenAt)
         }
         return SessionLog(sessions, unlocks, open)
+    }
+
+    /** When the screen went off again, if within [slipMillis] of the unlock at [at]. */
+    private fun slipEnd(sorted: List<ScreenEvent>, index: Int, at: Long, slipMillis: Long): Long? {
+        if (slipMillis <= 0) return null
+        for (j in index + 1 until sorted.size) {
+            val next = sorted[j]
+            if (next.timeMillis - at > slipMillis) return null
+            if (next.type == EventType.SCREEN_OFF || next.type == EventType.SHUTDOWN) return next.timeMillis
+        }
+        return null
     }
 
     private fun nextKeyguardEvent(sorted: List<ScreenEvent>, index: Int): EventType? {

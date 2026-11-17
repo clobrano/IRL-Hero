@@ -38,7 +38,9 @@ class StatsCalculator(
     /** IRL part of [session] that falls on [date]'s waking hours. */
     fun irlOn(session: Session, date: LocalDate): Long {
         val iv = Interval(session.startMillis, session.endMillis)
-        return wakingIntervals(date).sumOf { it.overlap(iv) }
+        val waking = wakingIntervals(date)
+        val slipped = session.slips.sumOf { slip -> waking.sumOf { it.overlap(slip) } }
+        return waking.sumOf { it.overlap(iv) } - slipped
     }
 
     /** Whole IRL length of a session across every day it spans (sleep excluded). */
@@ -80,6 +82,7 @@ class StatsCalculator(
             sessions = ended.count { irlOf(it) > 0 },
             unlocks = log.unlocks.count { it in dayStart until dayEnd },
             glances = ended.sumOf { it.glances },
+            slips = ended.sumOf { it.slips.size },
         )
     }
 
